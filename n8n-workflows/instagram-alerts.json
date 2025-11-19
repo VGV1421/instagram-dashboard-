@@ -1,0 +1,189 @@
+{
+  "name": "Instagram Alerts - Performance Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "name": "Check Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/instagram/sync",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Sync Latest Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analizar métricas y determinar si hay alertas\nconst summary = $input.item.json.summary;\nconst metrics = summary.metrics;\n\nconst alerts = [];\n\n// Alerta: Engagement rate bajo\nif (metrics.engagement_rate < 5) {\n  alerts.push({\n    type: 'low_engagement',\n    severity: 'warning',\n    message: `⚠️ Engagement rate bajo: ${metrics.engagement_rate}% (normal: >8%)`,\n    value: metrics.engagement_rate\n  });\n}\n\n// Alerta: Engagement rate muy alto (posible contenido viral)\nif (metrics.engagement_rate > 20) {\n  alerts.push({\n    type: 'viral_content',\n    severity: 'info',\n    message: `🚀 ¡Contenido viral! Engagement rate: ${metrics.engagement_rate}%`,\n    value: metrics.engagement_rate\n  });\n}\n\n// Alerta: Alcance promedio muy bajo\nif (metrics.avg_reach < 3000) {\n  alerts.push({\n    type: 'low_reach',\n    severity: 'warning',\n    message: `⚠️ Alcance bajo: ${metrics.avg_reach} (normal: >5000)`,\n    value: metrics.avg_reach\n  });\n}\n\n// Alerta: Errores en sincronización\nif (summary.sync.posts_errors > 0) {\n  alerts.push({\n    type: 'sync_errors',\n    severity: 'error',\n    message: `❌ Errores al sincronizar: ${summary.sync.posts_errors} posts fallidos`,\n    value: summary.sync.posts_errors\n  });\n}\n\nreturn {\n  json: {\n    alerts,\n    has_alerts: alerts.length > 0,\n    summary,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "name": "Analyze Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_alerts }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Has Alerts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/alerts/create",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alerts",
+              "value": "={{ JSON.stringify($json.alerts) }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ JSON.stringify($json.summary) }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Save Alerts to DB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1130, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "=onboarding@resend.dev",
+        "toEmail": "=vgvtoringana@gmail.com",
+        "subject": "=🚨 Alertas de Instagram - {{ $node['Analyze Metrics'].json.alerts.length }} nueva(s)",
+        "html": "=<h2>Alertas de Rendimiento - Instagram</h2>\n\n<p><strong>Cuenta:</strong> @{{ $node['Sync Latest Data'].json.summary.client.username }}</p>\n<p><strong>Fecha:</strong> {{ new Date().toLocaleString('es-ES') }}</p>\n\n<hr>\n\n<h3>Alertas Detectadas:</h3>\n<ul>\n{{ $node['Analyze Metrics'].json.alerts.map(alert => `<li><strong>${alert.severity.toUpperCase()}:</strong> ${alert.message}</li>`).join('') }}\n</ul>\n\n<hr>\n\n<h3>Métricas Actuales:</h3>\n<ul>\n  <li><strong>Engagement Rate:</strong> {{ $node['Sync Latest Data'].json.summary.metrics.engagement_rate }}%</li>\n  <li><strong>Alcance Promedio:</strong> {{ $node['Sync Latest Data'].json.summary.metrics.avg_reach }}</li>\n  <li><strong>Posts Sincronizados:</strong> {{ $node['Sync Latest Data'].json.summary.sync.total_posts }}</li>\n</ul>\n\n<p style=\"margin-top: 20px; color: #666; font-size: 12px;\">Este es un email automático generado por n8n.</p>",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1130, 400],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "Resend SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Check Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Sync Latest Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Latest Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Metrics": {
+      "main": [
+        [
+          {
+            "node": "Has Alerts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Alerts?": {
+      "main": [
+        [
+          {
+            "node": "Save Alerts to DB",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Europe/Madrid",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": [
+    {
+      "name": "instagram",
+      "id": "1"
+    },
+    {
+      "name": "alerts",
+      "id": "3"
+    }
+  ]
+}

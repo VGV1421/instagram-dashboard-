@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schema SQL - Instagram Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .instructions {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .step {
+            display: flex;
+            align-items: start;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        .step-content {
+            flex: 1;
+        }
+        .step-content h3 {
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        .step-content p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .step-content a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .step-content a:hover {
+            text-decoration: underline;
+        }
+        .sql-container {
+            padding: 30px;
+        }
+        .copy-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .copy-button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .copy-button:active {
+            transform: translateY(0);
+        }
+        .copy-button.copied {
+            background: #10b981;
+        }
+        pre {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success-message {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            color: #065f46;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Migración de Base de Datos</h1>
+            <p>Instagram Dashboard - Schema SQL</p>
+        </div>
+
+        <div class="instructions">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Abrir SQL Editor de Supabase</h3>
+                    <p>Haz clic en este enlace: <a href="https://supabase.com/dashboard/project/nwhdsboiojmqqfvbelwo/sql/new" target="_blank">Abrir SQL Editor →</a></p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Copiar el SQL</h3>
+                    <p>Haz clic en el botón verde "Copiar SQL" más abajo. El SQL se copiará automáticamente a tu portapapeles.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Pegar y Ejecutar</h3>
+                    <p>En el SQL Editor de Supabase, pega el contenido (Ctrl+V) y haz clic en el botón verde "RUN" (esquina inferior derecha).</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Verificar</h3>
+                    <p>Espera a que termine (2-3 segundos). Si todo está bien, verás "Success. No rows returned" o similar.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="sql-container">
+            <button class="copy-button" onclick="copySQL()">
+                📋 COPIAR TODO EL SQL
+            </button>
+
+            <pre id="sqlCode">-- ============================================
+-- INSTAGRAM DASHBOARD - SCHEMA COMPLETO
+-- Base de datos para Analytics de Instagram
+-- ============================================
+
+-- ============================================
+-- EXTENSIONES NECESARIAS
+-- ============================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ============================================
+-- FUNCIÓN HELPER: Update timestamp
+-- ============================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = now();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- ============================================
+-- TABLA: clients
+-- Almacena las cuentas de Instagram conectadas
+-- ============================================
+CREATE TABLE clients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  instagram_username text UNIQUE NOT NULL,
+  instagram_user_id text UNIQUE NOT NULL,
+  access_token text NOT NULL,
+  token_expires_at timestamptz,
+  status text DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_clients_instagram_user_id ON clients(instagram_user_id);
+CREATE INDEX idx_clients_status ON clients(status);
+
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view clients"
+  ON clients FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE TRIGGER update_clients_updated_at BEFORE UPDATE ON clients
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- TABLA: posts
+-- Almacena todos los posts de Instagram
+-- ============================================
+CREATE TABLE posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
+  instagram_post_id text UNIQUE NOT NULL,
+  media_type text NOT NULL CHECK (media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL_ALBUM', 'REELS')),
+  media_url text,
+  thumbnail_url text,
+  permalink text NOT NULL,
+  caption text,
+  timestamp timestamptz NOT NULL,
+  likes integer DEFAULT 0,
+  comments integer DEFAULT 0,
+  shares integer DEFAULT 0,
+  saves integer DEFAULT 0,
+  reach integer DEFAULT 0,
+  impressions integer DEFAULT 0,
+  engagement_rate numeric(5,2),
+  is_deleted boolean DEFAULT false,
+  last_fetched_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_posts_client_id ON posts(client_id);
+CREATE INDEX idx_posts_timestamp_desc ON posts(client_id, timestamp DESC);
+CREATE INDEX idx_posts_media_type ON posts(media_type);
+CREATE INDEX idx_posts_engagement_rate ON posts(engagement_rate DESC NULLS LAST);
+CREATE INDEX idx_posts_caption_search ON posts USING gin(to_tsvector('spanish', caption));
+
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view posts"
+  ON posts FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger para calcular engagement_rate automáticamente
+CREATE OR REPLACE FUNCTION calculate_engagement_rate()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.reach > 0 THEN
+    NEW.engagement_rate := ((NEW.likes + NEW.comments + NEW.saves)::numeric / NEW.reach) * 100;
+  ELSE
+    NEW.engagement_rate := 0;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_calculate_engagement_rate
+BEFORE INSERT OR UPDATE ON posts
+FOR EACH ROW EXECUTE FUNCTION calculate_engagement_rate();
+
+-- ============================================
+-- TABLA: account_stats
+-- Estadísticas agregadas de la cuenta
+-- ============================================
+CREATE TABLE account_stats (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
+  followers_count integer DEFAULT 0,
+  following_count integer DEFAULT 0,
+  media_count integer DEFAULT 0,
+  avg_engagement_rate_7d numeric(5,2),
+  avg_reach_7d integer,
+  total_likes_7d integer,
+  total_comments_7d integer,
+  total_shares_7d integer,
+  total_saves_7d integer,
+  avg_engagement_rate_30d numeric(5,2),
+  avg_reach_30d integer,
+  total_likes_30d integer,
+  total_comments_30d integer,
+  calculated_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_account_stats_client ON account_stats(client_id, calculated_at DESC);
+
+ALTER TABLE account_stats ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view account_stats"
+  ON account_stats FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- ============================================
+-- TABLA: alerts
+-- Sistema de alertas automáticas
+-- ============================================
+CREATE TABLE alerts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
+  alert_type text NOT NULL,
+  severity text DEFAULT 'warning' CHECK (severity IN ('info', 'warning', 'critical')),
+  title text NOT NULL,
+  message text NOT NULL,
+  metadata jsonb,
+  status text DEFAULT 'unread' CHECK (status IN ('unread', 'read', 'dismissed')),
+  read_at timestamptz,
+  dismissed_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_alerts_client_id ON alerts(client_id);
+CREATE INDEX idx_alerts_status ON alerts(status, created_at DESC);
+CREATE INDEX idx_alerts_client_status ON alerts(client_id, status, created_at DESC);
+
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view alerts"
+  ON alerts FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can update alerts"
+  ON alerts FOR UPDATE
+  USING (auth.role() = 'authenticated');
+
+-- ============================================
+-- TABLA: automation_logs
+-- Logs de ejecución de workflows n8n
+-- ============================================
+CREATE TABLE automation_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid REFERENCES clients(id) ON DELETE CASCADE,
+  workflow_name text NOT NULL,
+  execution_id text,
+  status text NOT NULL CHECK (status IN ('success', 'error', 'warning')),
+  posts_ingested integer,
+  duration_ms integer,
+  error_message text,
+  metadata jsonb,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_automation_logs_client_id ON automation_logs(client_id, created_at DESC);
+CREATE INDEX idx_automation_logs_workflow ON automation_logs(workflow_name, created_at DESC);
+
+ALTER TABLE automation_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view automation_logs"
+  ON automation_logs FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- ============================================
+-- FUNCIONES SQL ÚTILES
+-- ============================================
+
+-- Función: Dashboard overview
+CREATE OR REPLACE FUNCTION get_dashboard_overview(p_client_id uuid)
+RETURNS json AS $$
+DECLARE
+  result json;
+BEGIN
+  SELECT json_build_object(
+    'followers_count', COALESCE(followers_count, 0),
+    'media_count', COALESCE(media_count, 0),
+    'avg_engagement_rate_7d', COALESCE(avg_engagement_rate_7d, 0),
+    'avg_engagement_rate_30d', COALESCE(avg_engagement_rate_30d, 0),
+    'avg_reach_7d', COALESCE(avg_reach_7d, 0),
+    'calculated_at', calculated_at
+  ) INTO result
+  FROM account_stats
+  WHERE client_id = p_client_id
+  ORDER BY calculated_at DESC
+  LIMIT 1;
+
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Función: Top posts
+CREATE OR REPLACE FUNCTION get_top_posts(
+  p_client_id uuid,
+  p_limit integer DEFAULT 5,
+  p_days integer DEFAULT 30
+)
+RETURNS SETOF posts AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM posts
+  WHERE client_id = p_client_id
+    AND timestamp > NOW() - (p_days || ' days')::interval
+    AND is_deleted = false
+  ORDER BY engagement_rate DESC NULLS LAST
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Función: Búsqueda fulltext
+CREATE OR REPLACE FUNCTION search_posts(
+  p_client_id uuid,
+  p_query text,
+  p_media_types text[] DEFAULT NULL,
+  p_limit integer DEFAULT 20,
+  p_offset integer DEFAULT 0
+)
+RETURNS SETOF posts AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM posts
+  WHERE client_id = p_client_id
+    AND (
+      p_query IS NULL
+      OR p_query = ''
+      OR to_tsvector('spanish', caption) @@ plainto_tsquery('spanish', p_query)
+    )
+    AND (
+      p_media_types IS NULL
+      OR media_type = ANY(p_media_types)
+    )
+    AND is_deleted = false
+  ORDER BY timestamp DESC
+  LIMIT p_limit
+  OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- SEED DATA: Insertar cuenta de Instagram
+-- ============================================
+INSERT INTO clients (
+  id,
+  name,
+  instagram_username,
+  instagram_user_id,
+  access_token,
+  status
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'Digital Mind Millonaria',
+  'digitalmindmillonaria',
+  '17841475742645634',
+  'EAALDN6SVqdsBP1VxaXOd5LEeIJxpC6c7tZBkdxXZCpXNFJ4ReZCIrAIHIcAbnTv9B9cieT8p1CMiBQgRl0N13pQgyFpi5D34JIZACov0SWIghTOOZACXZAryFs2P44MR1iDlWlcnE6UUVMOWXhnOLYcp5K1LlLjZCvpUg0HChfZAuwwNoGklrcu7wNn0YqIcVF0SQfjVP4MZClsKnqqZAhZBfprVoAPjB4ci5vKR3wZBfmneVwZDZD',
+  'active'
+);</pre>
+
+            <div class="success-message" id="successMessage">
+                ✅ <strong>¡SQL copiado al portapapeles!</strong><br>
+                Ahora ve al SQL Editor de Supabase y pégalo (Ctrl+V), luego haz clic en "RUN".
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copySQL() {
+            const sqlCode = document.getElementById('sqlCode').textContent;
+            const button = document.querySelector('.copy-button');
+            const successMessage = document.getElementById('successMessage');
+
+            navigator.clipboard.writeText(sqlCode).then(() => {
+                button.textContent = '✅ ¡COPIADO!';
+                button.classList.add('copied');
+                successMessage.classList.add('show');
+
+                setTimeout(() => {
+                    button.textContent = '📋 COPIAR TODO EL SQL';
+                    button.classList.remove('copied');
+                }, 3000);
+            }).catch(err => {
+                alert('Error al copiar. Por favor, selecciona el texto manualmente y copia con Ctrl+C');
+            });
+        }
+
+        // Auto-abrir el SQL Editor de Supabase
+        window.addEventListener('load', () => {
+            const userConfirm = confirm('¿Quieres abrir el SQL Editor de Supabase automáticamente?');
+            if (userConfirm) {
+                window.open('https://supabase.com/dashboard/project/nwhdsboiojmqqfvbelwo/sql/new', '_blank');
+            }
+        });
+    </script>
+</body>
+</html>

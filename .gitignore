@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# archivos temporales y personales
+pass.txt
+CAPTURAS/
+errores/
+test-connection.js
+verify-sync.js
+
+# n8n local data (si usas n8n local)
+.n8n/
