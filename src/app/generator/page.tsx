@@ -102,7 +102,7 @@ export default function GeneratorPage() {
           <div className="flex items-start gap-2">
             <TrendingUp className="h-5 w-5 text-yellow-200 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-yellow-100">Instagram 2025: Keywords > Hashtags</p>
+              <p className="text-sm font-semibold text-yellow-100">Instagram 2025: Keywords {'>'} Hashtags</p>
               <p className="text-xs text-yellow-200 mt-1">
                 El algoritmo ahora lee tu caption completo. Las <strong>palabras clave SEO</strong> son más importantes que los hashtags para aparecer en búsquedas.
               </p>
