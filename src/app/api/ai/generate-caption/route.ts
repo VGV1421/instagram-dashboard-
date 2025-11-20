@@ -179,7 +179,7 @@ Formato de respuesta (IMPORTANTE - sigue exactamente este formato):
     // Análisis de cada caption (longitud, hashtags, emojis, KEYWORDS)
     const captionsWithAnalysis = captions.map((caption, idx) => {
       const hashtagCount = (caption.match(/#\w+/g) || []).length;
-      const emojiCount = (caption.match(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu) || []).length;
+      const emojiCount = (caption.match(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu) || []).length;
       const charCount = caption.length;
 
       // Detectar keywords usadas en el caption
