@@ -1,11 +1,22 @@
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { EngagementChart } from '@/components/charts/engagement-chart';
 import { ReachChart } from '@/components/charts/reach-chart';
 import { MediaTypeChart } from '@/components/charts/media-type-chart';
-import { TrendingUp, TrendingDown, BarChart3, Users } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Users, Calendar, X } from 'lucide-react';
+
+interface Post {
+  timestamp: string;
+  engagement_rate: number;
+  reach: number;
+  likes: number;
+  comments: number;
+  media_type: string;
+}
 
 interface TrendsData {
   summary: {
@@ -20,6 +31,7 @@ interface TrendsData {
     reach: number;
     likes: number;
     comments: number;
+    timestamp?: string;
   }>;
   byMediaType: Array<{
     type: string;
@@ -28,12 +40,16 @@ interface TrendsData {
     avgReach: number;
     avgLikes: number;
   }>;
+  posts?: Post[];
 }
 
 export default function TendenciasPage() {
   const [data, setData] = useState<TrendsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchTrends();
@@ -51,7 +67,14 @@ export default function TendenciasPage() {
       const result = await response.json();
 
       if (result.success) {
-        setData(result.data);
+        // También obtener posts directamente para filtrado
+        const postsResponse = await fetch('/api/posts');
+        const postsResult = await postsResponse.json();
+
+        setData({
+          ...result.data,
+          posts: postsResult.success ? postsResult.posts : []
+        });
       } else {
         throw new Error(result.error || 'Error desconocido');
       }
@@ -62,6 +85,92 @@ export default function TendenciasPage() {
       setLoading(false);
     }
   };
+
+  // Filtrar posts por rango de fechas
+  const filteredPosts = useMemo(() => {
+    if (!data?.posts || (!startDate && !endDate)) return data?.posts || [];
+
+    return data.posts.filter(post => {
+      const postDate = new Date(post.timestamp);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+
+      if (start && postDate < start) return false;
+      if (end && postDate > end) return false;
+      return true;
+    });
+  }, [data?.posts, startDate, endDate]);
+
+  // Recalcular métricas basadas en posts filtrados
+  const filteredData = useMemo(() => {
+    if (!data) return null;
+    if (!startDate && !endDate) return data;
+
+    const posts = filteredPosts;
+
+    // Recalcular summary
+    const totalPosts = posts.length;
+    const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0);
+    const totalComments = posts.reduce((sum, post) => sum + (post.comments || 0), 0);
+    const avgEngagement = posts.length > 0
+      ? posts.reduce((sum, post) => sum + (post.engagement_rate || 0), 0) / posts.length
+      : 0;
+
+    // Recalcular byMediaType
+    const byMediaTypeMap = posts.reduce((acc: any, post) => {
+      const type = post.media_type || 'UNKNOWN';
+      if (!acc[type]) {
+        acc[type] = {
+          count: 0,
+          totalEngagement: 0,
+          totalReach: 0,
+          totalLikes: 0,
+        };
+      }
+      acc[type].count++;
+      acc[type].totalEngagement += post.engagement_rate || 0;
+      acc[type].totalReach += post.reach || 0;
+      acc[type].totalLikes += post.likes || 0;
+      return acc;
+    }, {});
+
+    const byMediaType = Object.entries(byMediaTypeMap).map(([type, data]: [string, any]) => ({
+      type,
+      count: data.count,
+      avgEngagement: data.totalEngagement / data.count,
+      avgReach: Math.round(data.totalReach / data.count),
+      avgLikes: Math.round(data.totalLikes / data.count),
+    }));
+
+    // Recalcular timeline
+    const timeline = posts.map(post => ({
+      date: new Date(post.timestamp).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+      engagement: parseFloat(String(post.engagement_rate)) || 0,
+      reach: post.reach || 0,
+      likes: post.likes || 0,
+      comments: post.comments || 0,
+      timestamp: post.timestamp
+    }));
+
+    return {
+      summary: {
+        totalPosts,
+        totalLikes,
+        totalComments,
+        avgEngagement: parseFloat(avgEngagement.toFixed(2)),
+      },
+      timeline,
+      byMediaType,
+      posts
+    };
+  }, [data, filteredPosts, startDate, endDate]);
+
+  const clearFilters = () => {
+    setStartDate('');
+    setEndDate('');
+  };
+
+  const hasActiveFilters = startDate || endDate;
 
   if (loading) {
     return (
@@ -90,15 +199,75 @@ export default function TendenciasPage() {
     );
   }
 
-  const { summary, timeline, byMediaType } = data;
+  const displayData = filteredData || data;
+  const { summary, timeline, byMediaType } = displayData;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Tendencias</h1>
-        <p className="text-gray-600 mt-1">Análisis y evolución de tus métricas de Instagram</p>
+      {/* Header con filtros */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tendencias</h1>
+          <p className="text-gray-600 mt-1">
+            {hasActiveFilters
+              ? `Análisis de ${summary.totalPosts} posts filtrados`
+              : 'Análisis y evolución de tus métricas de Instagram'
+            }
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowFilters(!showFilters)}
+          variant="outline"
+          className="gap-2"
+        >
+          <Calendar className="h-4 w-4" />
+          {showFilters ? 'Ocultar Filtros' : 'Filtrar por Fecha'}
+        </Button>
       </div>
+
+      {/* Filtros de fecha */}
+      {showFilters && (
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha Inicio
+              </label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha Fin
+              </label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={clearFilters}
+                variant="outline"
+                className="gap-2 flex-1"
+                disabled={!hasActiveFilters}
+              >
+                <X className="h-4 w-4" />
+                Limpiar
+              </Button>
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-3 text-sm text-gray-600">
+              Mostrando posts desde {startDate || 'el inicio'} hasta {endDate || 'hoy'}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

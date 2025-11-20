@@ -1,8 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import {
   Home,
   TrendingUp,
@@ -10,7 +12,9 @@ import {
   BarChart3,
   Users,
   Target,
-  Bell
+  Bell,
+  Sparkles,
+  Lightbulb
 } from "lucide-react"
 
 const navigation = [
@@ -18,56 +22,134 @@ const navigation = [
     name: "Home",
     href: "/",
     icon: Home,
+    badge: null,
+    gradient: "from-purple-500 to-pink-500"
   },
   {
     name: "Tendencias",
     href: "/tendencias",
     icon: TrendingUp,
+    badge: "Hot",
+    gradient: "from-blue-500 to-cyan-500"
+  },
+  {
+    name: "Insights",
+    href: "/insights",
+    icon: Lightbulb,
+    badge: "Nuevo",
+    gradient: "from-yellow-500 to-orange-500"
   },
   {
     name: "Scripts",
     href: "/scripts",
+    icon: Sparkles,
+    badge: "IA",
+    gradient: "from-pink-500 to-rose-500"
+  },
+  {
+    name: "Generator",
+    href: "/generator",
     icon: FileText,
+    badge: "IA",
+    gradient: "from-violet-500 to-purple-500"
   },
   {
     name: "Rendimiento",
     href: "/rendimiento",
     icon: BarChart3,
+    badge: null,
+    gradient: "from-green-500 to-emerald-500"
   },
   {
     name: "Personas",
     href: "/personas",
     icon: Users,
+    badge: "3",
+    gradient: "from-orange-500 to-amber-500"
   },
   {
     name: "Embudo",
     href: "/embudo",
     icon: Target,
+    badge: null,
+    gradient: "from-indigo-500 to-purple-500"
   },
   {
     name: "Alertas",
     href: "/alertas",
     icon: Bell,
+    badge: "0",
+    gradient: "from-red-500 to-pink-500"
   },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [quickStats, setQuickStats] = useState({
+    engagement: '0.0',
+    postsToday: 0,
+    loading: true
+  })
+  const [unreadAlerts, setUnreadAlerts] = useState<number>(0)
+
+  useEffect(() => {
+    fetchQuickStats()
+    fetchUnreadAlerts()
+  }, [])
+
+  const fetchQuickStats = async () => {
+    try {
+      const response = await fetch('/api/analytics/quick-stats')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setQuickStats({
+            engagement: data.data.engagement,
+            postsToday: data.data.postsToday,
+            loading: false
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching quick stats:', error)
+      // Mantener valores por defecto si falla
+      setQuickStats(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const fetchUnreadAlerts = async () => {
+    try {
+      const response = await fetch('/api/alerts?isRead=false')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.stats) {
+          setUnreadAlerts(data.stats.unread)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching unread alerts:', error)
+    }
+  }
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-white">
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
-            <span className="text-sm font-bold text-white">IG</span>
+    <div className="flex h-full w-64 flex-col bg-gradient-to-b from-gray-50 to-white border-r shadow-lg">
+      {/* Logo mejorado */}
+      <div className="flex h-16 items-center border-b px-6 bg-white">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 shadow-lg">
+            <span className="text-base font-bold text-white">IG</span>
           </div>
-          <span className="text-lg font-semibold">Dashboard</span>
+          <div>
+            <span className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Dashboard
+            </span>
+            <p className="text-xs text-gray-500">Analytics Pro</p>
+          </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      {/* Navigation mejorada */}
+      <nav className="flex-1 space-y-2 p-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href
           const Icon = item.icon
@@ -77,18 +159,69 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "group flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-purple-50 text-purple-700"
-                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/50"
+                  : "text-gray-700 hover:bg-white hover:shadow-md"
               )}
             >
-              <Icon className={cn("h-5 w-5", isActive ? "text-purple-700" : "text-gray-500")} />
-              {item.name}
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                  isActive
+                    ? "bg-white/20"
+                    : `bg-gradient-to-br ${item.gradient} bg-opacity-10 group-hover:shadow-md`
+                )}>
+                  <Icon className={cn(
+                    "h-4 w-4 transition-all",
+                    isActive
+                      ? "text-white"
+                      : "text-gray-600 group-hover:scale-110"
+                  )} />
+                </div>
+                <span className={cn(
+                  isActive ? "text-white" : "text-gray-700"
+                )}>{item.name}</span>
+              </div>
+              {item.badge && (
+                <Badge
+                  className={cn(
+                    "text-xs",
+                    isActive
+                      ? "bg-white/20 text-white border-white/30"
+                      : "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0"
+                  )}
+                >
+                  {item.name === "Alertas" ? unreadAlerts : item.badge}
+                </Badge>
+              )}
             </Link>
           )
         })}
       </nav>
+
+      {/* Quick Stats */}
+      <div className="px-4 py-3 border-t bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="text-xs font-semibold text-gray-600 mb-2">Quick Stats</div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-600">Engagement</span>
+            {quickStats.loading ? (
+              <div className="h-3 w-12 bg-purple-200 animate-pulse rounded"></div>
+            ) : (
+              <span className="font-bold text-purple-600">{quickStats.engagement}%</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-600">Posts hoy</span>
+            {quickStats.loading ? (
+              <div className="h-3 w-8 bg-pink-200 animate-pulse rounded"></div>
+            ) : (
+              <span className="font-bold text-pink-600">{quickStats.postsToday}</span>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Footer */}
       <div className="border-t p-4">

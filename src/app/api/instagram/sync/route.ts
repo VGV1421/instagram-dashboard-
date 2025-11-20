@@ -38,7 +38,7 @@ export async function POST() {
     let posts;
 
     try {
-      posts = await instagram.getMediaWithInsights(25);
+      posts = await instagram.getMediaWithInsights(100); // Obtener hasta 100 posts
     } catch {
       // Fallback a datos de demostración
       posts = [
@@ -93,37 +93,39 @@ export async function POST() {
     // 3. Verificar/crear cliente en Supabase
     const clientInstagramId = profile.id;
 
-    const { data: existingClient, error: clientCheckError } = await supabase
+    // Primero intentar obtener el cliente existente por instagram_user_id
+    let { data: existingClient } = await supabase
       .from('clients')
       .select('id')
       .eq('instagram_user_id', clientInstagramId)
-      .single();
+      .maybeSingle();
 
-    let clientId: string;
-
-    if (existingClient) {
-      clientId = existingClient.id;
-    } else {
-      // Crear nuevo cliente
-      const { data: newClient, error: clientError } = await supabase
+    // Si no existe, usar el cliente por defecto
+    if (!existingClient) {
+      const { data: defaultClient } = await supabase
         .from('clients')
-        .insert({
-          name: profile.name || profile.username,
-          instagram_username: profile.username,
-          instagram_user_id: clientInstagramId,
-          access_token: process.env.INSTAGRAM_ACCESS_TOKEN || 'demo_token',
-          status: 'active'
-        })
         .select('id')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
         .single();
 
-      if (clientError) {
-        console.error('Error creando cliente:', clientError);
-        throw new Error('Error al crear cliente en base de datos');
-      }
-
-      clientId = newClient.id;
+      existingClient = defaultClient;
     }
+
+    if (!existingClient) {
+      throw new Error('No se encontró un cliente en la base de datos');
+    }
+
+    const clientId = existingClient.id;
+
+    // Actualizar el cliente con los datos más recientes
+    await supabase
+      .from('clients')
+      .update({
+        name: profile.name || profile.username,
+        instagram_username: profile.username,
+        instagram_user_id: clientInstagramId,
+      })
+      .eq('id', clientId);
 
     // 4. Guardar/actualizar posts
     let postsInserted = 0;
@@ -151,7 +153,7 @@ export async function POST() {
           .from('posts')
           .select('id')
           .eq('instagram_post_id', post.id)
-          .single();
+          .maybeSingle();
 
         if (existingPost) {
           // Actualizar post existente
