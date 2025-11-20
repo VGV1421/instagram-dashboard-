@@ -30,6 +30,7 @@ export default function GeneratorPage() {
   const [length, setLength] = useState('medio');
   const [includeHashtags, setIncludeHashtags] = useState(true);
   const [includeEmojis, setIncludeEmojis] = useState(true);
+  const [useCompetitorData, setUseCompetitorData] = useState(false);
   const [loading, setLoading] = useState(false);
   const [captions, setCaptions] = useState<GeneratedCaption[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -52,7 +53,8 @@ export default function GeneratorPage() {
           tone,
           length,
           includeHashtags,
-          includeEmojis
+          includeEmojis,
+          useCompetitorData
         })
       });
 
@@ -201,11 +203,30 @@ export default function GeneratorPage() {
           </div>
 
           {/* Options */}
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Usar datos de Competidores</p>
+                <p className="text-xs text-gray-500">Inspírate en referentes</p>
+              </div>
+              <button
+                onClick={() => setUseCompetitorData(!useCompetitorData)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  useCompetitorData ? 'bg-orange-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    useCompetitorData ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
                 <p className="text-sm font-medium text-gray-900">Incluir Hashtags</p>
-                <p className="text-xs text-gray-500">Basados en tus posts exitosos</p>
+                <p className="text-xs text-gray-500">Basados en posts exitosos</p>
               </div>
               <button
                 onClick={() => setIncludeHashtags(!includeHashtags)}

@@ -12,6 +12,7 @@ import OpenAI from 'openai';
  * - length: 'corto' | 'medio' | 'largo'
  * - includeHashtags: boolean
  * - includeEmojis: boolean
+ * - useCompetitorData: boolean (usar datos de competidores en lugar de propios)
  */
 
 const openai = new OpenAI({
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       length = 'medio',
       includeHashtags = true,
       includeEmojis = true,
+      useCompetitorData = false,
     } = body;
 
     if (!topic) {
@@ -47,11 +49,30 @@ export async function POST(request: Request) {
     const supabase = supabaseAdmin;
 
     // Obtener posts más exitosos para aprender del estilo
-    const { data: topPosts, error } = await supabase
-      .from('posts')
-      .select('caption, engagement_rate, likes, comments')
-      .order('engagement_rate', { ascending: false })
-      .limit(5);
+    // Si useCompetitorData es true, usar posts de competidores
+    let topPosts, error;
+
+    if (useCompetitorData) {
+      // Obtener posts de competidores
+      const { data, error: compError } = await supabase
+        .from('competitor_posts')
+        .select('caption, engagement_rate, likes, comments')
+        .order('engagement_rate', { ascending: false })
+        .limit(5);
+
+      topPosts = data;
+      error = compError;
+    } else {
+      // Obtener posts propios
+      const { data, error: ownError } = await supabase
+        .from('posts')
+        .select('caption, engagement_rate, likes, comments')
+        .order('engagement_rate', { ascending: false })
+        .limit(5);
+
+      topPosts = data;
+      error = ownError;
+    }
 
     if (error) {
       console.error('Error fetching top posts:', error);
@@ -63,8 +84,9 @@ export async function POST(request: Request) {
       : '';
 
     // Obtener keywords y hashtags de posts exitosos
+    const keywordsTable = useCompetitorData ? 'competitor_posts' : 'posts';
     const { data: keywordsData } = await supabase
-      .from('posts')
+      .from(keywordsTable)
       .select('caption, engagement_rate')
       .not('caption', 'is', null)
       .order('engagement_rate', { ascending: false })
@@ -108,6 +130,9 @@ export async function POST(request: Request) {
     const lengthInstruction = lengthMap[length as keyof typeof lengthMap] || lengthMap.medio;
 
     // Construir prompt para OpenAI con enfoque en Keywords (2025 SEO)
+    const dataSourceText = useCompetitorData
+      ? 'los competidores analizados'
+      : 'esta cuenta';
     const systemPrompt = `Eres un experto en Instagram SEO 2025 que crea captions optimizados para máxima visibilidad.
 
 CONTEXTO CRÍTICO - Instagram 2025:
@@ -120,8 +145,8 @@ CONTEXTO CRÍTICO - Instagram 2025:
 Tu tarea es generar 3 variaciones de captions para Instagram basándote en:
 1. El tema proporcionado por el usuario
 2. El tono solicitado
-3. Los ejemplos de captions exitosos del usuario
-4. Las KEYWORDS más efectivas de esta cuenta: ${topKeywords.join(', ')}
+3. Los ejemplos de captions exitosos de ${dataSourceText}
+4. Las KEYWORDS más efectivas de ${dataSourceText}: ${topKeywords.join(', ')}
 
 REGLAS FUNDAMENTALES 2025:
 - Genera exactamente 3 variaciones diferentes
@@ -213,7 +238,9 @@ Formato de respuesta (IMPORTANTE - sigue exactamente este formato):
           topHashtags: topHashtags ? topHashtags.split(' ').slice(0, 5) : [],
           model: 'gpt-4o-mini',
           seoOptimized: true,
-          year: 2025
+          year: 2025,
+          dataSource: useCompetitorData ? 'competitors' : 'own',
+          useCompetitorData
         }
       }
     });

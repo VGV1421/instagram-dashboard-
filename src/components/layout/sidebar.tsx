@@ -14,7 +14,8 @@ import {
   Target,
   Bell,
   Sparkles,
-  Lightbulb
+  Lightbulb,
+  UserCheck
 } from "lucide-react"
 
 const navigation = [
@@ -52,6 +53,13 @@ const navigation = [
     icon: FileText,
     badge: "IA",
     gradient: "from-violet-500 to-purple-500"
+  },
+  {
+    name: "Competidores",
+    href: "/competidores",
+    icon: UserCheck,
+    badge: "Nuevo",
+    gradient: "from-orange-500 to-red-500"
   },
   {
     name: "Rendimiento",
