@@ -16,8 +16,10 @@ interface GeneratedCaption {
   text: string;
   analysis: {
     characters: number;
+    keywords: number;
     hashtags: number;
     emojis: number;
+    keywordsList: string[];
     estimatedEngagement: string;
   };
 }
@@ -90,31 +92,45 @@ export default function GeneratorPage() {
             <Sparkles className="h-8 w-8" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Generador de Captions IA</h1>
-            <p className="text-purple-100">Basado en tus posts más exitosos</p>
+            <h1 className="text-3xl font-bold">Generador de Captions IA + SEO</h1>
+            <p className="text-purple-100">Optimizado para Instagram 2025 con Keywords</p>
           </div>
         </div>
-        <div className="grid sm:grid-cols-3 gap-4 mt-6">
+
+        {/* SEO 2025 Alert */}
+        <div className="bg-yellow-400/20 backdrop-blur border border-yellow-300/30 rounded-lg p-3 mb-4">
+          <div className="flex items-start gap-2">
+            <TrendingUp className="h-5 w-5 text-yellow-200 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-yellow-100">Instagram 2025: Keywords > Hashtags</p>
+              <p className="text-xs text-yellow-200 mt-1">
+                El algoritmo ahora lee tu caption completo. Las <strong>palabras clave SEO</strong> son más importantes que los hashtags para aparecer en búsquedas.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-4">
           <div className="bg-white/10 backdrop-blur rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">Aprende de tus datos</span>
+              <span className="text-sm font-medium">Keywords SEO automáticas</span>
             </div>
-            <p className="text-xs text-purple-100">Analiza tus posts exitosos</p>
+            <p className="text-xs text-purple-100">Basadas en tus posts exitosos</p>
           </div>
           <div className="bg-white/10 backdrop-blur rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
               <Wand2 className="h-4 w-4" />
-              <span className="text-sm font-medium">3 variaciones</span>
+              <span className="text-sm font-medium">3 variaciones optimizadas</span>
             </div>
-            <p className="text-xs text-purple-100">Elige el que más te guste</p>
+            <p className="text-xs text-purple-100">Cada una con SEO score</p>
           </div>
           <div className="bg-white/10 backdrop-blur rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
               <Hash className="h-4 w-4" />
-              <span className="text-sm font-medium">Hashtags incluidos</span>
+              <span className="text-sm font-medium">Hashtags como apoyo</span>
             </div>
-            <p className="text-xs text-purple-100">Los que ya te funcionan</p>
+            <p className="text-xs text-purple-100">Complementan las keywords</p>
           </div>
         </div>
       </div>
@@ -294,7 +310,30 @@ export default function GeneratorPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              {/* SEO Keywords Badge */}
+              {caption.analysis.keywords > 0 && (
+                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-semibold text-green-700">SEO OPTIMIZADO - {caption.analysis.keywords} Keywords</span>
+                  </div>
+                  {caption.analysis.keywordsList && caption.analysis.keywordsList.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {caption.analysis.keywordsList.map((kw, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-4 gap-3">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  <span className="font-semibold">{caption.analysis.keywords} keywords</span>
+                </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Hash className="h-4 w-4 text-purple-600" />
                   <span>{caption.analysis.hashtags} hashtags</span>
@@ -304,7 +343,7 @@ export default function GeneratorPage() {
                   <span>{caption.analysis.emojis} emojis</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <BarChart3 className="h-4 w-4 text-green-600" />
+                  <BarChart3 className="h-4 w-4 text-orange-600" />
                   <span>{caption.analysis.estimatedEngagement}</span>
                 </div>
               </div>
