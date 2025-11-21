@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     }
 
     if (isRead !== null && isRead !== 'all') {
-      query = query.eq('is_read', isRead === 'true');
+      const status = isRead === 'true' ? 'read' : 'unread';
+      query = query.eq('status', status);
     }
 
     const { data: alerts, error } = await query.limit(100);
@@ -36,11 +37,11 @@ export async function GET(request: Request) {
     // Contar alertas por categoría
     const { data: allAlerts } = await supabaseAdmin
       .from('alerts')
-      .select('alert_type, severity, is_read');
+      .select('alert_type, severity, status');
 
     const stats = {
       total: allAlerts?.length || 0,
-      unread: allAlerts?.filter(a => !a.is_read).length || 0,
+      unread: allAlerts?.filter(a => a.status === 'unread').length || 0,
       byType: {
         low_engagement: allAlerts?.filter(a => a.alert_type === 'low_engagement').length || 0,
         viral_content: allAlerts?.filter(a => a.alert_type === 'viral_content').length || 0,

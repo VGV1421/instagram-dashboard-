@@ -41,12 +41,13 @@ export async function POST(request: NextRequest) {
           client_id: client.id,
           alert_type: alert.type,
           severity: alert.severity,
+          title: alert.message.substring(0, 100), // Primeros 100 caracteres como título
           message: alert.message,
           metadata: {
             value: alert.value,
             metrics: summaryData.metrics
           },
-          is_read: false
+          status: 'unread'
         });
     });
 

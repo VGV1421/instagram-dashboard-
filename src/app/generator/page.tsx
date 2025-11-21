@@ -42,7 +42,7 @@ export default function GeneratorPage() {
     }
 
     setLoading(true);
-    toast.loading('Generando captions con IA...');
+    const toastId = toast.loading('Generando captions con IA... (esto puede tardar 5-10 segundos)');
 
     try {
       const response = await fetch('/api/ai/generate-caption', {
@@ -61,14 +61,17 @@ export default function GeneratorPage() {
       const result = await response.json();
 
       if (result.success) {
+        toast.dismiss(toastId);
         setCaptions(result.data.captions);
-        toast.success(`${result.data.captions.length} captions generados!`);
+        toast.success(`${result.data.captions.length} captions generados con SEO optimizado!`);
       } else {
+        toast.dismiss(toastId);
         toast.error(result.error || 'Error al generar captions');
       }
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Error de conexión');
+      toast.dismiss(toastId);
+      toast.error('Error de conexión con la IA');
     } finally {
       setLoading(false);
     }

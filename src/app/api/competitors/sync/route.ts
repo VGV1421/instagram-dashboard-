@@ -12,81 +12,163 @@ import { supabaseAdmin } from '@/lib/supabase/simple-client';
 const INSTAGRAM_GRAPH_API_URL = 'https://graph.instagram.com';
 const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
 
-// Función para obtener datos de un perfil público usando Graph API
+// Función para obtener datos REALES de un perfil público usando RapidAPI
 async function fetchInstagramProfile(username: string) {
-  if (!INSTAGRAM_ACCESS_TOKEN) {
-    throw new Error('Instagram Access Token no configurado');
-  }
+  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+  const RAPIDAPI_HOST = process.env.RAPIDAPI_INSTAGRAM_HOST || 'instagram-scraper-20251.p.rapidapi.com';
 
   try {
-    // Nota: Graph API requiere el Instagram Business Account ID
-    // Para perfiles públicos, usamos scraping básico o API de terceros
-    // Por ahora, usamos datos simulados basados en el username
+    console.log(`Fetching REAL data for @${username}...`);
 
-    // En producción, deberías usar:
-    // 1. Instagram Basic Display API (requiere autenticación del usuario)
-    // 2. Instagram Graph API (solo para cuentas de negocio)
-    // 3. Servicio de terceros como RapidAPI Instagram scraper
+    if (!RAPIDAPI_KEY) {
+      throw new Error('RAPIDAPI_KEY no configurado en las variables de entorno');
+    }
 
-    console.log(`Fetching data for @${username}...`);
+    // Usar el endpoint correcto: /userinfo/
+    const response = await fetch(`https://${RAPIDAPI_HOST}/userinfo/?username_or_id_url=${username}`, {
+      method: 'GET',
+      headers: {
+        'X-RapidAPI-Key': RAPIDAPI_KEY,
+        'X-RapidAPI-Host': RAPIDAPI_HOST
+      }
+    });
 
-    // Simulación de datos (REEMPLAZAR con API real)
-    const mockData = {
-      username,
-      display_name: username.charAt(0).toUpperCase() + username.slice(1),
-      bio: `Bio de @${username}`,
-      followers_count: Math.floor(Math.random() * 50000) + 1000,
-      following_count: Math.floor(Math.random() * 1000) + 100,
-      posts_count: Math.floor(Math.random() * 500) + 50,
-      is_verified: Math.random() > 0.8,
-      profile_picture_url: `https://via.placeholder.com/150?text=${username}`,
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ RapidAPI error for @${username}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+        url: response.url
+      });
+
+      if (response.status === 429) {
+        throw new Error(`Límite de API alcanzado. Espera unos minutos antes de sincronizar más competidores.`);
+      }
+
+      if (response.status === 404) {
+        throw new Error(`Usuario @${username} no encontrado en Instagram`);
+      }
+
+      if (response.status === 403) {
+        throw new Error(`API key inválida o sin permisos`);
+      }
+
+      throw new Error(`Error ${response.status}: ${errorText || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`📦 Estructura de respuesta para @${username}:`, JSON.stringify(data).substring(0, 200));
+
+    // Extraer datos del response
+    const userData = data.data || data;
+
+    const profileData = {
+      username: userData.username || username,
+      display_name: userData.full_name || userData.name || userData.display_name || username,
+      bio: userData.biography || userData.bio || userData.description || '',
+      followers_count: userData.follower_count || userData.followers_count || userData.edge_followed_by?.count || 0,
+      following_count: userData.following_count || userData.follows_count || userData.edge_follow?.count || 0,
+      posts_count: userData.media_count || userData.posts_count || userData.edge_owner_to_timeline_media?.count || 0,
+      is_verified: userData.is_verified || userData.verified || false,
+      profile_picture_url: userData.profile_pic_url || userData.profile_pic_url_hd || userData.profile_picture || `https://via.placeholder.com/150?text=${username}`,
     };
 
-    return mockData;
+    console.log(`✅ Datos obtenidos para @${username}: ${profileData.followers_count.toLocaleString()} seguidores`);
+    return profileData;
 
-  } catch (error) {
-    console.error(`Error fetching profile for @${username}:`, error);
-    throw error;
+  } catch (error: any) {
+    console.error(`❌ Error completo para @${username}:`, error);
+    throw error; // Re-throw para que el error se propague
   }
 }
 
-// Función para obtener posts recientes de un perfil
-async function fetchInstagramPosts(username: string) {
+// Función para obtener posts recientes de un perfil usando RapidAPI
+async function fetchInstagramPosts(username: string, followerCount: number = 1000) {
+  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+  const RAPIDAPI_HOST = process.env.RAPIDAPI_INSTAGRAM_HOST || 'instagram-scraper-20251.p.rapidapi.com';
+
   try {
-    // Simulación de posts (REEMPLAZAR con API real)
-    const mockPosts = [];
-    const numPosts = Math.floor(Math.random() * 10) + 5;
+    console.log(`Fetching REAL posts for @${username}...`);
 
-    for (let i = 0; i < numPosts; i++) {
-      const likes = Math.floor(Math.random() * 5000) + 100;
-      const comments = Math.floor(Math.random() * 500) + 10;
-      const followers = Math.floor(Math.random() * 50000) + 1000;
-      const engagement_rate = ((likes + comments) / followers) * 100;
-
-      mockPosts.push({
-        instagram_post_id: `${username}_post_${Date.now()}_${i}`,
-        caption: `Este es un caption de ejemplo para @${username}. #marketing #digital #instagram #socialmedia`,
-        media_type: 'IMAGE',
-        media_url: `https://via.placeholder.com/400?text=Post+${i + 1}`,
-        permalink: `https://www.instagram.com/p/${Math.random().toString(36).substring(7)}/`,
-        timestamp: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-        likes,
-        comments,
-        engagement_rate: parseFloat(engagement_rate.toFixed(2))
-      });
+    if (!RAPIDAPI_KEY) {
+      console.warn('⚠️ RAPIDAPI_KEY no configurado');
+      return [];
     }
 
-    return mockPosts;
+    // Usar el endpoint correcto: /userposts/
+    const response = await fetch(`https://${RAPIDAPI_HOST}/userposts/?username_or_id_url=${username}`, {
+      method: 'GET',
+      headers: {
+        'X-RapidAPI-Key': RAPIDAPI_KEY,
+        'X-RapidAPI-Host': RAPIDAPI_HOST
+      }
+    });
 
-  } catch (error) {
-    console.error(`Error fetching posts for @${username}:`, error);
-    throw error;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ RapidAPI posts error for @${username}:`, response.status, errorText);
+      // Si falla, retornar array vacío en lugar de tirar error
+      console.warn(`No se pudieron obtener posts para @${username}, continuando sin posts`);
+      return [];
+    }
+
+    const data = await response.json();
+    console.log(`📦 Posts response estructura para @${username}:`, JSON.stringify(data).substring(0, 200));
+
+    // Extraer posts del response
+    const postsData = data.data?.items || data.data || data.items || [];
+
+    if (!postsData || postsData.length === 0) {
+      console.warn(`⚠️ No posts found for @${username}`);
+      return [];
+    }
+
+    // Tomar los últimos 12 posts
+    const recentPosts = postsData.slice(0, 12);
+
+    const formattedPosts = recentPosts.map((post: any) => {
+      const likes = post.like_count || post.likes || post.edge_media_preview_like?.count || 0;
+      const comments = post.comment_count || post.comments || post.edge_media_to_comment?.count || 0;
+      const engagement_rate = followerCount > 0
+        ? parseFloat((((likes + comments) / followerCount) * 100).toFixed(2))
+        : 0;
+
+      return {
+        instagram_post_id: post.id || post.pk || post.code || `${username}_${Date.now()}_${Math.random()}`,
+        caption: post.caption?.text || post.caption || post.edge_media_to_caption?.edges?.[0]?.node?.text || '',
+        media_type: post.media_type || (post.is_video || post.product_type === 'clips' ? 'VIDEO' : 'IMAGE'),
+        media_url: post.thumbnail_url || post.display_url || post.image_versions2?.candidates?.[0]?.url || post.thumbnail_src || '',
+        permalink: post.permalink || `https://www.instagram.com/p/${post.code || post.shortcode}/`,
+        timestamp: post.taken_at ? new Date(post.taken_at * 1000).toISOString() : (post.timestamp || post.taken_at_timestamp ? new Date(post.taken_at_timestamp * 1000).toISOString() : new Date().toISOString()),
+        likes,
+        comments,
+        engagement_rate
+      };
+    });
+
+    console.log(`✅ ${formattedPosts.length} posts obtenidos para @${username}`);
+    return formattedPosts;
+
+  } catch (error: any) {
+    console.error(`❌ Error fetching posts for @${username}:`, error.message);
+    // Retornar array vacío en lugar de tirar error para no bloquear la sincronización
+    return [];
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body = {};
+    try {
+      const text = await request.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+    } catch (e) {
+      // Body vacío o inválido, usar objeto vacío
+      body = {};
+    }
     const { competitorId } = body || {};
 
     const supabase = supabaseAdmin;
@@ -146,8 +228,8 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Obtener posts recientes
-        const posts = await fetchInstagramPosts(competitor.instagram_username);
+        // Obtener posts recientes (pasamos el follower count para calcular engagement correcto)
+        const posts = await fetchInstagramPosts(competitor.instagram_username, profileData.followers_count);
 
         // Insertar posts (con upsert para evitar duplicados)
         let insertedPosts = 0;

@@ -92,22 +92,59 @@ export async function POST(request: Request) {
       .order('engagement_rate', { ascending: false })
       .limit(15);
 
-    // Extraer keywords (palabras más frecuentes, excluyendo comunes)
-    const stopWords = ['el', 'la', 'de', 'en', 'y', 'a', 'los', 'las', 'del', 'un', 'una', 'con', 'para', 'por', 'que', 'tu', 'te', 'mi'];
+    // Extraer keywords contextuales (excluyendo palabras comunes y verbos de relleno)
+    const stopWords = new Set([
+      'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'en', 'y', 'a',
+      'del', 'con', 'para', 'por', 'que', 'tu', 'te', 'mi', 'tú', 'si', 'no',
+      'como', 'más', 'pero', 'muy', 'también', 'donde', 'cuando', 'porque',
+      'hacer', 'tener', 'estar', 'ser', 'poder', 'decir', 'dar', 'ver', 'saber',
+      'querer', 'llegar', 'pasar', 'dejar', 'seguir', 'encontrar', 'llamar',
+      'paso', 'cosa', 'parte', 'día', 'año', 'vez', 'tiempo', 'vida', 'mundo',
+      'desde', 'hasta', 'sobre', 'entre', 'sin', 'tras', 'durante', 'contra',
+      'este', 'ese', 'aquel', 'esta', 'esa', 'aquella', 'esto', 'eso', 'aquello',
+      'yo', 'él', 'ella', 'nosotros', 'vosotros', 'ellos', 'ellas', 'me', 'se',
+      'comenta', 'comentar', 'guarda', 'guardar', 'comparte', 'compartir', 'sigue',
+      'link', 'perfil', 'bio', 'swipe', 'slide', 'click', 'toca', 'enviar'
+    ]);
+
+    // Palabras clave relevantes del dominio que SIEMPRE se consideran
+    const relevantDomainKeywords = new Set([
+      'automatización', 'automatizacion', 'marketing', 'ventas', 'inteligencia',
+      'artificial', 'digital', 'estrategia', 'contenido', 'instagram', 'redes',
+      'sociales', 'engagement', 'algoritmo', 'analytics', 'datos', 'análisis',
+      'conversión', 'conversion', 'cliente', 'clientes', 'audiencia', 'seguidores',
+      'crecimiento', 'negocio', 'empresa', 'emprendimiento', 'productividad',
+      'eficiencia', 'optimización', 'resultados', 'objetivo', 'meta', 'campaña',
+      'publicidad', 'chatbot', 'workflow', 'herramienta', 'software', 'plataforma',
+      'solución', 'innovación', 'tecnología', 'transformación', 'ecommerce',
+      'producto', 'servicio', 'marca', 'branding', 'diseño', 'creativo',
+      'comunicación', 'copywriting', 'mensaje', 'storytelling'
+    ]);
+
     const allWords: { [key: string]: number } = {};
 
     keywordsData?.forEach(post => {
-      const text = post.caption?.toLowerCase().replace(/#\w+/g, '').replace(/[^\w\sáéíóúñ]/g, '') || '';
-      const words = text.split(/\s+/).filter(w => w.length > 3 && !stopWords.includes(w));
+      const text = post.caption?.toLowerCase().replace(/#\w+/g, '').replace(/[^\w\sáéíóúñü]/g, ' ') || '';
+      const words = text.split(/\s+/).filter(w => {
+        if (relevantDomainKeywords.has(w)) return true; // Siempre incluir palabras del dominio
+        return w.length >= 5 && !stopWords.has(w) && isNaN(Number(w));
+      });
       words.forEach(word => {
         allWords[word] = (allWords[word] || 0) + 1;
       });
     });
 
+    // Priorizar palabras del dominio en el ranking
     const topKeywords = Object.entries(allWords)
-      .sort((a, b) => b[1] - a[1])
+      .map(([word, count]) => ({
+        word,
+        count,
+        isDomain: relevantDomainKeywords.has(word),
+        score: relevantDomainKeywords.has(word) ? count * 3 : count // 3x bonus para palabras del dominio
+      }))
+      .sort((a, b) => b.score - a.score)
       .slice(0, 15)
-      .map(([word]) => word);
+      .map(item => item.word);
 
     // Extraer hashtags exitosos
     const allHashtags: string[] = [];

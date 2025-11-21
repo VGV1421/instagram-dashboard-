@@ -1,14 +1,16 @@
 "use client"
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Users, Download, RefreshCw, Check, AlertCircle,
-  TrendingUp, ExternalLink, Database
+  TrendingUp, ExternalLink, Database, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AnalyticsDashboard } from '@/components/competitors/analytics-dashboard';
 
 interface Competitor {
   id: string;
@@ -21,10 +23,12 @@ interface Competitor {
 }
 
 export default function CompetitorsPage() {
+  const router = useRouter();
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchCompetitors();
@@ -51,7 +55,7 @@ export default function CompetitorsPage() {
 
   const handleImportFromNotion = async () => {
     setImportLoading(true);
-    toast.loading('Importando desde Notion...');
+    const toastId = toast.loading('Importando desde Notion...');
 
     try {
       const response = await fetch('/api/competitors/import-notion', {
@@ -61,41 +65,94 @@ export default function CompetitorsPage() {
       const result = await response.json();
 
       if (result.success) {
+        toast.dismiss(toastId);
         toast.success(`${result.data.imported} competidores importados!`);
         if (result.data.errors.length > 0) {
           toast.warning(`${result.data.failed} registros con errores`);
         }
         await fetchCompetitors();
       } else {
+        toast.dismiss(toastId);
         toast.error(result.error || 'Error al importar desde Notion');
       }
     } catch (error) {
       console.error('Error:', error);
+      toast.dismiss(toastId);
       toast.error('Error de conexión');
     } finally {
       setImportLoading(false);
     }
   };
 
-  const handleSyncAll = async () => {
+  const toggleCompetitor = (id: string) => {
+    const newSelected = new Set(selectedCompetitors);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedCompetitors(newSelected);
+  };
+
+  const selectAll = () => {
+    setSelectedCompetitors(new Set(competitors.map(c => c.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedCompetitors(new Set());
+  };
+
+  const handleSyncSelected = async () => {
+    if (selectedCompetitors.size === 0) {
+      toast.error('Selecciona al menos un competidor');
+      return;
+    }
+
     setSyncLoading(true);
-    toast.loading('Sincronizando datos de Instagram...');
+    const toastId = toast.loading(`Sincronizando ${selectedCompetitors.size} competidor(es)...`);
 
     try {
-      const response = await fetch('/api/competitors/sync', {
-        method: 'POST'
-      });
+      // Sincronizar cada competidor seleccionado uno por uno
+      let synced = 0;
+      let failed = 0;
 
-      const result = await response.json();
+      for (const competitorId of Array.from(selectedCompetitors)) {
+        try {
+          const response = await fetch('/api/competitors/sync-apify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ competitorId })
+          });
 
-      if (result.success) {
-        toast.success(`${result.data.synced} competidores sincronizados!`);
-        await fetchCompetitors();
-      } else {
-        toast.error(result.error || 'Error al sincronizar');
+          const result = await response.json();
+
+          if (result.success) {
+            synced++;
+          } else {
+            failed++;
+            console.error(`Error syncing competitor ${competitorId}:`, result.error);
+          }
+
+          // Esperar 3 segundos entre requests
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (error) {
+          failed++;
+          console.error(`Error syncing competitor ${competitorId}:`, error);
+        }
       }
+
+      toast.dismiss(toastId);
+      if (synced > 0) {
+        toast.success(`${synced} competidor(es) sincronizados!${failed > 0 ? ` (${failed} fallidos)` : ''}`);
+      } else {
+        toast.error('No se pudo sincronizar ningún competidor');
+      }
+
+      await fetchCompetitors();
+      setSelectedCompetitors(new Set()); // Deseleccionar todos
     } catch (error) {
       console.error('Error:', error);
+      toast.dismiss(toastId);
       toast.error('Error de conexión');
     } finally {
       setSyncLoading(false);
@@ -134,11 +191,12 @@ export default function CompetitorsPage() {
         </div>
       </div>
 
+
       {/* Actions */}
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-3 gap-4">
           <Button
             onClick={handleImportFromNotion}
             disabled={importLoading}
@@ -154,8 +212,8 @@ export default function CompetitorsPage() {
           </Button>
 
           <Button
-            onClick={handleSyncAll}
-            disabled={syncLoading || competitors.length === 0}
+            onClick={handleSyncSelected}
+            disabled={syncLoading || selectedCompetitors.size === 0}
             className="bg-green-600 hover:bg-green-700 h-auto py-4 flex-col gap-2"
           >
             {syncLoading ? (
@@ -163,8 +221,20 @@ export default function CompetitorsPage() {
             ) : (
               <RefreshCw className="h-5 w-5" />
             )}
-            <span className="font-semibold">Sincronizar Datos de Instagram</span>
-            <span className="text-xs opacity-90">Obtiene posts y métricas públicas</span>
+            <span className="font-semibold">
+              Sincronizar Seleccionados ({selectedCompetitors.size})
+            </span>
+            <span className="text-xs opacity-90">3 segundos entre cada uno</span>
+          </Button>
+
+          <Button
+            onClick={() => router.push('/competidores/posts')}
+            disabled={competitors.length === 0}
+            className="bg-purple-600 hover:bg-purple-700 h-auto py-4 flex-col gap-2"
+          >
+            <FileText className="h-5 w-5" />
+            <span className="font-semibold">Ver Posts de Competidores</span>
+            <span className="text-xs opacity-90">Análisis detallado de publicaciones</span>
           </Button>
         </div>
 
@@ -187,21 +257,44 @@ export default function CompetitorsPage() {
       {competitors.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Competidores ({competitors.length})
-            </h2>
-            <Button
-              onClick={fetchCompetitors}
-              variant="outline"
-              size="sm"
-              disabled={loading}
-            >
-              {loading ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-            </Button>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Competidores ({competitors.length})
+              </h2>
+              <p className="text-xs text-gray-600 mt-1">
+                {selectedCompetitors.size} seleccionado(s)
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={selectAll}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+              >
+                Seleccionar todos
+              </Button>
+              <Button
+                onClick={deselectAll}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+              >
+                Deseleccionar
+              </Button>
+              <Button
+                onClick={fetchCompetitors}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+              >
+                {loading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -211,10 +304,17 @@ export default function CompetitorsPage() {
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-4">
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedCompetitors.has(competitor.id)}
+                    onChange={() => toggleCompetitor(competitor.id)}
+                    className="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
+                  />
                   <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg">
                     {competitor.instagram_username.charAt(0).toUpperCase()}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900">
                         @{competitor.instagram_username}
@@ -224,11 +324,24 @@ export default function CompetitorsPage() {
                           Activo
                         </Badge>
                       )}
+                      {competitor.followers_count === 0 && (
+                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                          Demo
+                        </Badge>
+                      )}
+                      {competitor.is_verified && (
+                        <Badge className="bg-blue-100 text-blue-800 text-xs">
+                          Verificado
+                        </Badge>
+                      )}
                     </div>
                     {competitor.display_name && (
                       <p className="text-sm text-gray-600">{competitor.display_name}</p>
                     )}
-                    <div className="flex items-center gap-3 mt-1">
+                    {competitor.bio && competitor.bio.trim() && (
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{competitor.bio}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {competitor.category && (
                         <Badge variant="outline" className="text-xs">
                           {competitor.category}
@@ -236,13 +349,29 @@ export default function CompetitorsPage() {
                       )}
                       {competitor.followers_count && (
                         <span className="text-xs text-gray-500">
-                          {competitor.followers_count.toLocaleString()} seguidores
+                          👥 {competitor.followers_count.toLocaleString()}
+                        </span>
+                      )}
+                      {competitor.posts_count && (
+                        <span className="text-xs text-gray-500">
+                          📸 {competitor.posts_count} posts
                         </span>
                       )}
                       {competitor.last_synced_at && (
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <span className="text-xs text-green-600 flex items-center gap-1">
                           <Check className="h-3 w-3" />
-                          Sincronizado
+                          Sincronizado {new Date(competitor.last_synced_at).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                      {!competitor.last_synced_at && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          No sincronizado
                         </span>
                       )}
                     </div>
@@ -261,6 +390,11 @@ export default function CompetitorsPage() {
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Dashboard de Análisis de Competencia */}
+      {competitors.length > 0 && (
+        <AnalyticsDashboard />
       )}
     </div>
   );

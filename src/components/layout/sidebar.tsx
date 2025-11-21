@@ -15,7 +15,8 @@ import {
   Bell,
   Sparkles,
   Lightbulb,
-  UserCheck
+  UserCheck,
+  DollarSign
 } from "lucide-react"
 
 const navigation = [
@@ -81,6 +82,13 @@ const navigation = [
     icon: Target,
     badge: null,
     gradient: "from-indigo-500 to-purple-500"
+  },
+  {
+    name: "Métricas Negocio",
+    href: "/metricas-negocio",
+    icon: DollarSign,
+    badge: "Nuevo",
+    gradient: "from-emerald-500 to-teal-500"
   },
   {
     name: "Alertas",
@@ -234,7 +242,18 @@ export function Sidebar() {
       {/* Footer */}
       <div className="border-t p-4">
         <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+          <img
+            src="https://scontent.cdninstagram.com/v/t51.2885-19/467841869_18519577398014823_5936863844704527336_n.jpg?stp=dst-jpg_s150x150_tt6&_nc_ht=scontent.cdninstagram.com&_nc_cat=107&_nc_ohc=SvmjDKz6SQEQ7kNvgGJ8Qjh&_nc_gid=bfc5e71dbb7c4cb6870a25854d1ddb8a&edm=AOQ1c0wBAAAA&ccb=7-5&oh=00_AYA1vBL8t7vT5FHtGwJrwKIIl3usjxYzWXDcSdDd-YfgOg&oe=6764ED1D&_nc_sid=8b3546"
+            alt="Profile"
+            className="h-10 w-10 rounded-full object-cover border-2 border-purple-500"
+            onError={(e) => {
+              // Fallback to gradient if image fails to load
+              e.currentTarget.style.display = 'none';
+              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+              if (fallback) fallback.style.display = 'block';
+            }}
+          />
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" style={{display: 'none'}} />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
               @digitalmindmillonaria

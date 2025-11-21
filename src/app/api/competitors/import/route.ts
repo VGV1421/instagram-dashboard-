@@ -116,9 +116,11 @@ export async function GET() {
   try {
     const supabase = supabaseAdmin;
 
+    // Solo obtener competidores ACTIVOS
     const { data: competitors, error } = await supabase
       .from('competitors')
       .select('*')
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (error) {

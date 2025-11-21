@@ -7,11 +7,28 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { is_read } = body;
+    const { status, is_read } = body;
+
+    // Convertir is_read a status si viene en ese formato (retrocompatibilidad)
+    let updateStatus = status;
+    if (is_read !== undefined && !status) {
+      updateStatus = is_read ? 'read' : 'unread';
+    }
+
+    const updateData: any = {};
+    if (updateStatus) {
+      updateData.status = updateStatus;
+      if (updateStatus === 'read' && !body.read_at) {
+        updateData.read_at = new Date().toISOString();
+      }
+      if (updateStatus === 'dismissed' && !body.dismissed_at) {
+        updateData.dismissed_at = new Date().toISOString();
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from('alerts')
-      .update({ is_read })
+      .update(updateData)
       .eq('id', params.id)
       .select()
       .single();
