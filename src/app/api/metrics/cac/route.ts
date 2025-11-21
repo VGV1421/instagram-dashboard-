@@ -13,9 +13,10 @@ export async function GET() {
     const supabase = supabaseAdmin;
 
     // Obtener clientes agrupados por fuente
+    // Usamos * para obtener todos los campos disponibles y manejar diferentes estructuras de BD
     const { data: clients, error } = await supabase
       .from('clients')
-      .select('source, created_at, metadata');
+      .select('*');
 
     if (error) throw error;
 
@@ -43,7 +44,8 @@ export async function GET() {
     let clientesUltimos30Dias = 0;
 
     clients?.forEach(client => {
-      const canal = client.source || 'organico';
+      // Buscar source en columna directa o en metadata
+      const canal = client.source || client.metadata?.source || 'organico';
       clientesPorCanal[canal] = (clientesPorCanal[canal] || 0) + 1;
       clientesTotal++;
 

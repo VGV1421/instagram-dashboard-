@@ -5,7 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, TrendingDown, Users, Eye, Heart, MessageCircle, BarChart3, Calendar, X } from "lucide-react"
+import Link from "next/link"
+import { TrendingUp, TrendingDown, Users, Eye, Heart, MessageCircle, BarChart3, Calendar, X, DollarSign, Target, Zap, ArrowRight } from "lucide-react"
 
 interface Post {
   id: string
@@ -20,16 +21,53 @@ interface Post {
   permalink: string
 }
 
+interface BusinessMetrics {
+  ltv: number
+  cac: number
+  ratio: number
+  ratioStatus: string
+  ratioColor: string
+  retentionRate: number
+  mqlCount: number
+  sqlCount: number
+}
+
 export function HomeClient() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [businessMetrics, setBusinessMetrics] = useState<BusinessMetrics | null>(null)
 
   useEffect(() => {
     fetchPosts()
+    fetchBusinessMetrics()
   }, [])
+
+  const fetchBusinessMetrics = async () => {
+    try {
+      const [ltvRes, cacRes, leadsRes, retentionRes] = await Promise.all([
+        fetch('/api/metrics/ltv').then(r => r.json()),
+        fetch('/api/metrics/cac').then(r => r.json()),
+        fetch('/api/metrics/lead-scoring').then(r => r.json()),
+        fetch('/api/metrics/retention').then(r => r.json())
+      ])
+
+      setBusinessMetrics({
+        ltv: ltvRes.success ? ltvRes.data.ltv_promedio : 0,
+        cac: cacRes.success ? cacRes.data.cac_general : 0,
+        ratio: cacRes.success ? cacRes.data.ratio_ltv_cac : 0,
+        ratioStatus: cacRes.success ? cacRes.data.salud_ratio : 'N/A',
+        ratioColor: cacRes.success ? cacRes.data.color_salud : 'gray',
+        retentionRate: retentionRes.success ? retentionRes.data.retention_rate : 0,
+        mqlCount: leadsRes.success ? leadsRes.data.mql_count : 0,
+        sqlCount: leadsRes.success ? leadsRes.data.sql_count : 0
+      })
+    } catch (error) {
+      console.error('Error fetching business metrics:', error)
+    }
+  }
 
   const fetchPosts = async () => {
     try {
@@ -321,6 +359,57 @@ export function HomeClient() {
           </div>
         </Card>
       </div>
+
+      {/* Business Metrics Summary */}
+      {businessMetrics && (
+        <Card className="p-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-600" />
+              <h2 className="text-lg font-bold text-gray-900">Métricas de Negocio</h2>
+            </div>
+            <Link href="/metricas-negocio">
+              <Button variant="outline" size="sm" className="gap-2">
+                Ver Detalle <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+              <div className="text-2xl font-bold text-emerald-600">${businessMetrics.ltv}</div>
+              <div className="text-xs text-gray-500">LTV Promedio</div>
+            </div>
+            <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+              <div className="text-2xl font-bold text-blue-600">${businessMetrics.cac}</div>
+              <div className="text-xs text-gray-500">CAC</div>
+            </div>
+            <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+              <div className="text-2xl font-bold" style={{
+                color: businessMetrics.ratioColor === 'green' ? '#10b981' :
+                       businessMetrics.ratioColor === 'yellow' ? '#f59e0b' :
+                       businessMetrics.ratioColor === 'orange' ? '#f97316' : '#ef4444'
+              }}>
+                {businessMetrics.ratio}x
+              </div>
+              <div className="text-xs text-gray-500">LTV/CAC ({businessMetrics.ratioStatus})</div>
+            </div>
+            <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+              <div className="text-2xl font-bold text-purple-600">{businessMetrics.retentionRate}%</div>
+              <div className="text-xs text-gray-500">Retención</div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-blue-500" />
+              <span><strong>{businessMetrics.mqlCount}</strong> MQL</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-green-500" />
+              <span><strong>{businessMetrics.sqlCount}</strong> SQL</span>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Top Posts */}
       <div>
