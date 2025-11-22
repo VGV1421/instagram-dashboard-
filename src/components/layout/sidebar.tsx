@@ -18,7 +18,8 @@ import {
   UserCheck,
   DollarSign,
   Calendar,
-  Zap
+  Zap,
+  Video
 } from "lucide-react"
 
 const navigation = [
@@ -63,6 +64,13 @@ const navigation = [
     icon: Zap,
     badge: "Auto",
     gradient: "from-emerald-500 to-cyan-500"
+  },
+  {
+    name: "Video Reels",
+    href: "/video-generator",
+    icon: Video,
+    badge: "Nuevo",
+    gradient: "from-pink-500 to-purple-500"
   },
   {
     name: "Competidores",
