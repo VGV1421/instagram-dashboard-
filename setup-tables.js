@@ -35,21 +35,10 @@ async function setupTables() {
     }
     console.log('   ✅ Conexión exitosa\n');
 
-    // 2. Crear tabla competitor_analysis
-    console.log('2️⃣ Creando tabla competitor_analysis...');
-    const { error: analysisError } = await supabase.rpc('exec_sql', {
-      sql: `
-        CREATE TABLE IF NOT EXISTS competitor_analysis (
-          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-          analysis_data JSONB NOT NULL,
-          statistics JSONB,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-      `
-    }).catch(() => null);
+    // 2. Verificar tabla competitor_analysis
+    console.log('2️⃣ Verificando tabla competitor_analysis...');
 
-    // Si rpc no funciona, la tabla puede que ya exista o necesite crearse manualmente
-    // Intentar insertar un registro de prueba
+    // Intentar insertar un registro de prueba para verificar si la tabla existe
     const { error: insertAnalysisError } = await supabase
       .from('competitor_analysis')
       .insert({

@@ -42,13 +42,17 @@ export async function POST(request: Request) {
     if (syncCompetitors) {
       log.push('🔄 Iniciando sincronización de competidores...');
 
-      // Obtener competidores que necesitan sync (ordenados por prioridad)
-      const { data: competitorsToSyncData } = await supabase
+      // Obtener competidores que necesitan sync (ordenados por último sync)
+      const { data: competitorsToSyncData, error: compError } = await supabase
         .from('competitors')
-        .select('id, instagram_username, last_synced_at, sync_priority')
+        .select('id, instagram_username, last_synced_at')
         .eq('is_active', true)
         .order('last_synced_at', { ascending: true, nullsFirst: true })
         .limit(competitorsToSync);
+
+      if (compError) {
+        log.push(`  ⚠️ Error obteniendo competidores: ${compError.message}`);
+      }
 
       if (competitorsToSyncData && competitorsToSyncData.length > 0) {
         for (const competitor of competitorsToSyncData) {
@@ -80,8 +84,7 @@ export async function POST(request: Request) {
               await supabase
                 .from('competitors')
                 .update({
-                  last_synced_at: new Date().toISOString(),
-                  total_posts_synced: (competitor as any).total_posts_synced + (syncResult.posts_synced || 0)
+                  last_synced_at: new Date().toISOString()
                 })
                 .eq('id', competitor.id);
             } else {
