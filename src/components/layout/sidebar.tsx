@@ -16,7 +16,9 @@ import {
   Sparkles,
   Lightbulb,
   UserCheck,
-  DollarSign
+  DollarSign,
+  Calendar,
+  Zap
 } from "lucide-react"
 
 const navigation = [
@@ -56,10 +58,17 @@ const navigation = [
     gradient: "from-violet-500 to-purple-500"
   },
   {
+    name: "Auto-Contenido",
+    href: "/contenido-programado",
+    icon: Zap,
+    badge: "Auto",
+    gradient: "from-emerald-500 to-cyan-500"
+  },
+  {
     name: "Competidores",
     href: "/competidores",
     icon: UserCheck,
-    badge: "Nuevo",
+    badge: null,
     gradient: "from-orange-500 to-red-500"
   },
   {

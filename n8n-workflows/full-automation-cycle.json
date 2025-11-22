@@ -1,0 +1,280 @@
+{
+  "name": "Instagram Full Automation Cycle",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Cada 12 Horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.APP_URL || 'http://localhost:3000'}}/api/automation/run-full-cycle",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"syncCompetitors\": true,\n  \"analyzeContent\": true,\n  \"generateContent\": true,\n  \"competitorsToSync\": 3,\n  \"contentToGenerate\": 3\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "run-full-cycle",
+      "name": "Ejecutar Ciclo Completo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "¿Éxito?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer datos del resultado\nconst data = $input.first().json.data || {};\n\nconst summary = {\n  competitors_synced: data.competitors_synced || 0,\n  posts_fetched: data.posts_fetched || 0,\n  content_generated: data.content_generated || 0,\n  analysis_performed: data.analysis_performed || false,\n  errors: data.errors || [],\n  execution_time: data.execution_time_ms || 0,\n  timestamp: new Date().toISOString()\n};\n\n// Determinar si hay alertas\nsummary.has_errors = summary.errors.length > 0;\nsummary.needs_attention = summary.content_generated === 0 || summary.competitors_synced === 0;\n\nreturn [{ json: summary }];"
+      },
+      "id": "process-results",
+      "name": "Procesar Resultados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.content_generated > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "has-content",
+      "name": "¿Generó Contenido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "dashboard@tu-dominio.com",
+        "toEmail": "={{$env.NOTIFICATION_EMAIL || 'vgvtoringana@gmail.com'}}",
+        "subject": "✅ Instagram Automation - Contenido Generado",
+        "emailType": "html",
+        "html": "<h2>🎉 Ciclo de Automatización Completado</h2>\n\n<p>Se ha ejecutado el ciclo completo de automatización con éxito.</p>\n\n<h3>📊 Resumen:</h3>\n<ul>\n  <li><strong>Competidores sincronizados:</strong> {{ $json.competitors_synced }}</li>\n  <li><strong>Posts extraídos:</strong> {{ $json.posts_fetched }}</li>\n  <li><strong>Contenido generado:</strong> {{ $json.content_generated }}</li>\n  <li><strong>Análisis realizado:</strong> {{ $json.analysis_performed ? 'Sí' : 'No' }}</li>\n  <li><strong>Tiempo de ejecución:</strong> {{ Math.round($json.execution_time / 1000) }}s</li>\n</ul>\n\n<p>📝 Revisa el contenido generado en: <a href=\"{{$env.APP_URL || 'http://localhost:3000'}}/contenido-programado\">Dashboard de Contenido</a></p>\n\n<p style=\"color: #888; font-size: 12px;\">Generado automáticamente por n8n - {{ $json.timestamp }}</p>"
+      },
+      "id": "send-success-email",
+      "name": "Email: Contenido Generado",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1500, 100],
+      "credentials": {
+        "smtp": {
+          "id": "resend-smtp",
+          "name": "Resend SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "dashboard@tu-dominio.com",
+        "toEmail": "={{$env.NOTIFICATION_EMAIL || 'vgvtoringana@gmail.com'}}",
+        "subject": "⚠️ Instagram Automation - Sin Contenido",
+        "emailType": "html",
+        "html": "<h2>⚠️ Ciclo Completado Sin Generar Contenido</h2>\n\n<p>El ciclo se ejecutó pero no se generó contenido nuevo.</p>\n\n<h3>📊 Detalles:</h3>\n<ul>\n  <li><strong>Competidores sincronizados:</strong> {{ $json.competitors_synced }}</li>\n  <li><strong>Posts extraídos:</strong> {{ $json.posts_fetched }}</li>\n  <li><strong>Contenido generado:</strong> {{ $json.content_generated }}</li>\n</ul>\n\n<h3>Posibles causas:</h3>\n<ul>\n  <li>No hay competidores activos configurados</li>\n  <li>No hay posts de competidores para analizar</li>\n  <li>Error en la API de OpenAI</li>\n</ul>\n\n<p>📝 Verifica la configuración en: <a href=\"{{$env.APP_URL || 'http://localhost:3000'}}/competidores\">Competidores</a></p>"
+      },
+      "id": "send-warning-email",
+      "name": "Email: Advertencia",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1500, 300],
+      "credentials": {
+        "smtp": {
+          "id": "resend-smtp",
+          "name": "Resend SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "dashboard@tu-dominio.com",
+        "toEmail": "={{$env.NOTIFICATION_EMAIL || 'vgvtoringana@gmail.com'}}",
+        "subject": "❌ Instagram Automation - Error",
+        "emailType": "html",
+        "html": "<h2>❌ Error en Ciclo de Automatización</h2>\n\n<p>Se produjo un error durante la ejecución del ciclo.</p>\n\n<h3>Error:</h3>\n<pre>{{ JSON.stringify($json, null, 2) }}</pre>\n\n<p>Por favor revisa los logs y la configuración.</p>"
+      },
+      "id": "send-error-email",
+      "name": "Email: Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1000, 450],
+      "credentials": {
+        "smtp": {
+          "id": "resend-smtp",
+          "name": "Resend SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.APP_URL || 'http://localhost:3000'}}/api/n8n/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow_name\": \"full-automation-cycle-n8n\",\n  \"execution_id\": \"{{ $execution.id }}\",\n  \"status\": \"{{ $json.has_errors ? 'partial' : 'success' }}\",\n  \"execution_data\": {{ JSON.stringify($json) }}\n}"
+      },
+      "id": "log-execution",
+      "name": "Registrar Ejecución",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1750, 200]
+    }
+  ],
+  "connections": {
+    "Cada 12 Horas": {
+      "main": [
+        [
+          {
+            "node": "Ejecutar Ciclo Completo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar Ciclo Completo": {
+      "main": [
+        [
+          {
+            "node": "¿Éxito?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Éxito?": {
+      "main": [
+        [
+          {
+            "node": "Procesar Resultados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Resultados": {
+      "main": [
+        [
+          {
+            "node": "¿Generó Contenido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Generó Contenido?": {
+      "main": [
+        [
+          {
+            "node": "Email: Contenido Generado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email: Advertencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email: Contenido Generado": {
+      "main": [
+        [
+          {
+            "node": "Registrar Ejecución",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email: Advertencia": {
+      "main": [
+        [
+          {
+            "node": "Registrar Ejecución",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "automation"
+    },
+    {
+      "name": "instagram"
+    }
+  ]
+}
