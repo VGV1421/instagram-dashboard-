@@ -1,0 +1,146 @@
+{
+  "name": "Instagram Dashboard - Ciclo Diario Automatico",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Cada 24 horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/automation/run-full-cycle",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"syncCompetitors\": true,\n  \"analyzeContent\": true,\n  \"generateContent\": true,\n  \"competitorsToSync\": 100,\n  \"contentToGenerate\": 3\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "run-full-cycle",
+      "name": "Ejecutar Ciclo Completo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Verificar Exito",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/notifications",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"type\": \"error\",\n  \"data\": {\n    \"error\": \"El ciclo de automatización falló. Revisa los logs.\"\n  }\n}"
+      },
+      "id": "notify-error",
+      "name": "Notificar Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 450]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "Ciclo completado exitosamente"
+            },
+            {
+              "name": "competitors_synced",
+              "value": "={{ $json.data.competitors_synced }}"
+            },
+            {
+              "name": "content_generated",
+              "value": "={{ $json.data.content_generated }}"
+            }
+          ]
+        }
+      },
+      "id": "set-success",
+      "name": "Resultado Exitoso",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 200]
+    }
+  ],
+  "connections": {
+    "Cada 24 horas": {
+      "main": [
+        [
+          {
+            "node": "Ejecutar Ciclo Completo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar Ciclo Completo": {
+      "main": [
+        [
+          {
+            "node": "Verificar Exito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Exito": {
+      "main": [
+        [
+          {
+            "node": "Resultado Exitoso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notificar Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "instagram-dashboard"
+    }
+  ]
+}

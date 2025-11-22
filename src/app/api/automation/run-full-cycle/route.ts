@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/simple-client';
+import { notifyFullReport, notifyError } from '@/lib/email/notifications';
 
 /**
  * POST /api/automation/run-full-cycle
@@ -143,6 +144,8 @@ export async function POST(request: Request) {
     // =========================================
     // PASO 3: Generar Contenido Automático
     // =========================================
+    let generatedContentForEmail: any[] = [];
+
     if (generateContent) {
       log.push('✍️ Generando contenido nuevo...');
 
@@ -167,6 +170,9 @@ export async function POST(request: Request) {
         if (generateResult.success) {
           results.content_generated = generateResult.data.generated_count;
           log.push(`  ✅ Contenido generado: ${results.content_generated} piezas`);
+
+          // Guardar contenido para el email
+          generatedContentForEmail = generateResult.data.content || [];
 
           // Log de cada pieza generada
           generateResult.data.content?.forEach((c: any, i: number) => {
@@ -207,6 +213,35 @@ export async function POST(request: Request) {
         analysis_performed: results.analysis_performed
       });
 
+    // =========================================
+    // PASO 5: Enviar Notificación por Email con Contenido Completo
+    // =========================================
+    if (results.content_generated > 0 || results.competitors_synced > 0) {
+      log.push('📧 Enviando notificación por email con contenido completo...');
+      try {
+        const emailResult = await notifyFullReport(
+          results.content_generated,
+          results.competitors_synced,
+          executionTime,
+          generatedContentForEmail.map(c => ({
+            type: c.type || c.content_type || 'post',
+            topic: c.topic || 'Sin título',
+            caption: c.caption || '',
+            script: c.script || undefined,
+            hashtags: c.hashtags || [],
+            engagement_prediction: c.engagement_prediction || 'medium'
+          }))
+        );
+        if (emailResult.success) {
+          log.push('  ✅ Email enviado correctamente');
+        } else {
+          log.push(`  ⚠️ Error enviando email: ${emailResult.error}`);
+        }
+      } catch (emailError: any) {
+        log.push(`  ⚠️ Error en notificación: ${emailError.message}`);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -218,6 +253,13 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Error in full automation cycle:', error);
+
+    // Notificar error por email
+    try {
+      await notifyError(`Error en ciclo de automatización: ${error.message}`);
+    } catch (emailError) {
+      console.error('Error enviando notificación:', emailError);
+    }
 
     return NextResponse.json({
       success: false,

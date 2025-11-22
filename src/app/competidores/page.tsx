@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Users, Download, RefreshCw, Check, AlertCircle,
-  TrendingUp, ExternalLink, Database, FileText
+  TrendingUp, ExternalLink, Database, FileText,
+  ToggleLeft, ToggleRight, Upload, FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnalyticsDashboard } from '@/components/competitors/analytics-dashboard';
@@ -29,6 +30,7 @@ export default function CompetitorsPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
+  const [csvSyncing, setCsvSyncing] = useState(false);
 
   useEffect(() => {
     fetchCompetitors();
@@ -37,11 +39,11 @@ export default function CompetitorsPage() {
   const fetchCompetitors = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/competitors/import');
+      const response = await fetch('/api/competitors');
       const result = await response.json();
 
       if (result.success) {
-        setCompetitors(result.data.competitors);
+        setCompetitors(result.data);
       } else {
         toast.error('Error al cargar competidores');
       }
@@ -50,6 +52,100 @@ export default function CompetitorsPage() {
       toast.error('Error de conexión');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Toggle activar/desactivar un competidor
+  const toggleActiveStatus = async (competitor: Competitor) => {
+    try {
+      const response = await fetch('/api/competitors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: [competitor.id],
+          is_active: !competitor.is_active
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`@${competitor.instagram_username} ${!competitor.is_active ? 'activado' : 'desactivado'}`);
+        fetchCompetitors();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('Error al cambiar estado');
+    }
+  };
+
+  // Activar/desactivar seleccionados
+  const toggleSelectedActive = async (activate: boolean) => {
+    if (selectedCompetitors.size === 0) {
+      toast.error('Selecciona al menos un competidor');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/competitors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: Array.from(selectedCompetitors),
+          is_active: activate
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(result.message);
+        setSelectedCompetitors(new Set());
+        fetchCompetitors();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('Error al cambiar estado');
+    }
+  };
+
+  // Exportar a Excel
+  const exportToExcel = async () => {
+    setCsvSyncing(true);
+    try {
+      const response = await fetch('/api/competitors/sync-csv');
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`Excel exportado: ${result.files.xlsx}`);
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('Error al exportar');
+    } finally {
+      setCsvSyncing(false);
+    }
+  };
+
+  // Importar desde Excel
+  const importFromExcel = async () => {
+    setCsvSyncing(true);
+    const toastId = toast.loading('Sincronizando desde Excel/CSV...');
+    try {
+      const response = await fetch('/api/competitors/sync-csv', { method: 'POST' });
+      const result = await response.json();
+      toast.dismiss(toastId);
+      if (result.success) {
+        toast.success(`Sincronizado: ${result.stats.activados} activados, ${result.stats.desactivados} desactivados`);
+        fetchCompetitors();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.dismiss(toastId);
+      toast.error('Error al importar');
+    } finally {
+      setCsvSyncing(false);
     }
   };
 
@@ -196,45 +292,94 @@ export default function CompetitorsPage() {
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
 
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Button
+            onClick={exportToExcel}
+            disabled={csvSyncing}
+            className="bg-emerald-600 hover:bg-emerald-700 h-auto py-4 flex-col gap-2"
+          >
+            {csvSyncing ? (
+              <RefreshCw className="h-5 w-5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-5 w-5" />
+            )}
+            <span className="font-semibold">Exportar a Excel</span>
+            <span className="text-xs opacity-90">Genera COMPETIDORES.xlsx</span>
+          </Button>
+
+          <Button
+            onClick={importFromExcel}
+            disabled={csvSyncing}
+            className="bg-orange-600 hover:bg-orange-700 h-auto py-4 flex-col gap-2"
+          >
+            {csvSyncing ? (
+              <RefreshCw className="h-5 w-5 animate-spin" />
+            ) : (
+              <Upload className="h-5 w-5" />
+            )}
+            <span className="font-semibold">Importar desde Excel</span>
+            <span className="text-xs opacity-90">Lee COMPETIDORES.xlsx</span>
+          </Button>
+
+          <Button
+            onClick={() => toggleSelectedActive(true)}
+            disabled={selectedCompetitors.size === 0}
+            className="bg-green-600 hover:bg-green-700 h-auto py-4 flex-col gap-2"
+          >
+            <ToggleRight className="h-5 w-5" />
+            <span className="font-semibold">Activar Seleccionados</span>
+            <span className="text-xs opacity-90">{selectedCompetitors.size} seleccionado(s)</span>
+          </Button>
+
+          <Button
+            onClick={() => toggleSelectedActive(false)}
+            disabled={selectedCompetitors.size === 0}
+            variant="outline"
+            className="h-auto py-4 flex-col gap-2 hover:bg-red-50 hover:border-red-300"
+          >
+            <ToggleLeft className="h-5 w-5" />
+            <span className="font-semibold">Desactivar Seleccionados</span>
+            <span className="text-xs opacity-90">{selectedCompetitors.size} seleccionado(s)</span>
+          </Button>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-4 mt-4">
           <Button
             onClick={handleImportFromNotion}
             disabled={importLoading}
-            className="bg-blue-600 hover:bg-blue-700 h-auto py-4 flex-col gap-2"
+            variant="outline"
+            className="h-auto py-3 flex-col gap-1"
           >
             {importLoading ? (
-              <RefreshCw className="h-5 w-5 animate-spin" />
+              <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
-              <Download className="h-5 w-5" />
+              <Database className="h-4 w-4" />
             )}
-            <span className="font-semibold">Importar desde Notion</span>
-            <span className="text-xs opacity-90">Sincroniza la página de Referentes</span>
+            <span className="text-sm">Importar desde Notion</span>
           </Button>
 
           <Button
             onClick={handleSyncSelected}
             disabled={syncLoading || selectedCompetitors.size === 0}
-            className="bg-green-600 hover:bg-green-700 h-auto py-4 flex-col gap-2"
+            variant="outline"
+            className="h-auto py-3 flex-col gap-1"
           >
             {syncLoading ? (
-              <RefreshCw className="h-5 w-5 animate-spin" />
+              <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
-              <RefreshCw className="h-5 w-5" />
+              <RefreshCw className="h-4 w-4" />
             )}
-            <span className="font-semibold">
-              Sincronizar Seleccionados ({selectedCompetitors.size})
-            </span>
-            <span className="text-xs opacity-90">3 segundos entre cada uno</span>
+            <span className="text-sm">Sincronizar Posts ({selectedCompetitors.size})</span>
           </Button>
 
           <Button
             onClick={() => router.push('/competidores/posts')}
             disabled={competitors.length === 0}
-            className="bg-purple-600 hover:bg-purple-700 h-auto py-4 flex-col gap-2"
+            variant="outline"
+            className="h-auto py-3 flex-col gap-1"
           >
-            <FileText className="h-5 w-5" />
-            <span className="font-semibold">Ver Posts de Competidores</span>
-            <span className="text-xs opacity-90">Análisis detallado de publicaciones</span>
+            <FileText className="h-4 w-4" />
+            <span className="text-sm">Ver Posts</span>
           </Button>
         </div>
 
@@ -378,14 +523,33 @@ export default function CompetitorsPage() {
                   </div>
                 </div>
 
-                <a
-                  href={`https://instagram.com/${competitor.instagram_username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  <ExternalLink className="h-5 w-5" />
-                </a>
+                <div className="flex items-center gap-2">
+                  {/* Toggle activar/desactivar */}
+                  <button
+                    onClick={() => toggleActiveStatus(competitor)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      competitor.is_active
+                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    }`}
+                    title={competitor.is_active ? 'Desactivar' : 'Activar'}
+                  >
+                    {competitor.is_active ? (
+                      <ToggleRight className="h-5 w-5" />
+                    ) : (
+                      <ToggleLeft className="h-5 w-5" />
+                    )}
+                  </button>
+
+                  <a
+                    href={`https://instagram.com/${competitor.instagram_username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 p-2"
+                  >
+                    <ExternalLink className="h-5 w-5" />
+                  </a>
+                </div>
               </div>
             ))}
           </div>

@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -46,6 +47,24 @@ CAPTURAS/
 errores/
 test-connection.js
 verify-sync.js
+test-*.js
 
 # n8n local data (si usas n8n local)
 .n8n/
+
+# archivos de datos
+*.xlsx
+*.csv
+SELECCION_COMPETIDORES.csv
+COMPETIDORES.xlsx
+
+# fotos y videos del avatar (personales)
+FOTOS AVATAR SIN USAR/
+FOTOS AVAR USADAS/
+VIDEOS SIN USAR/
+
+# documentacion tecnica (opcional - descomentar para subir)
+DOSIER_*.md
+PROGRESO_*.md
+RESUMEN_*.md
+GUIA_*.md

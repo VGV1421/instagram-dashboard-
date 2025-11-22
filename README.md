@@ -1,343 +1,301 @@
-# 📊 Instagram Analytics Dashboard
+# Instagram Dashboard - Sistema Automatico de Contenido
 
-Dashboard profesional de analytics para Instagram con visualización de métricas, automatización de sincronización y sistema de alertas inteligente.
+Sistema completo y automatizado para analizar competidores de Instagram, generar contenido con IA y gestionar publicaciones automaticamente. Disenado para crecer seguidores y convertirlos en compradores.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.0.3-black?style=flat&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat&logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green?style=flat&logo=supabase)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?style=flat&logo=openai)
 ![n8n](https://img.shields.io/badge/n8n-Automation-orange?style=flat)
 
 ---
 
-## ✨ Características Principales
+## Flujo Automatico
 
-### 📈 Analytics en Tiempo Real
-- **Dashboard principal** con métricas clave de Instagram
-- **Página de Tendencias** con gráficos interactivos (Recharts)
-- Seguimiento de engagement rate, alcance, likes y comentarios
-- Análisis por tipo de contenido (imágenes, videos, carruseles, reels)
-
-### 🔄 Sincronización Automática
-- Sincronización manual con un clic desde el dashboard
-- Workflows de n8n para sincronización automática cada 24 horas
-- Almacenamiento de datos históricos en Supabase
-- Sistema de logs de todas las sincronizaciones
-
-### 🚨 Sistema de Alertas
-- Detección automática de engagement rate bajo (<5%)
-- Identificación de contenido viral (>20% engagement)
-- Alertas de alcance bajo (<3000)
-- Notificaciones por email vía Resend/SMTP
-
-### 🤖 Automatización con n8n
-- 5 workflows configurados y listos para usar
-- Sincronización diaria automática
-- Monitoreo y alertas cada 6 horas
-- Logs automáticos en base de datos
-
----
-
-## 🛠️ Stack Tecnológico
-
-### Frontend
-- **Next.js 16.0.3** - Framework React con App Router y Turbopack
-- **TypeScript** - Tipado estático completo
-- **Tailwind CSS** - Estilos con paleta personalizada
-- **shadcn/ui** - Componentes UI accesibles y customizables
-- **Recharts** - Visualización de datos con gráficos interactivos
-- **Lucide React** - Iconos
-- **Sonner** - Notificaciones toast
-
-### Backend
-- **Supabase** - PostgreSQL con Row Level Security
-- **Instagram Graph API** - Integración con Instagram Business
-- **n8n** - Orquestación de workflows
-- **Resend** - Emails transaccionales via SMTP
-
-### Integraciones
-- **OpenAI API** - IA para generación de contenido (configurado)
-- **Notion API** - Buyer personas y referentes (configurado)
-- **ManyChat** - Datos de leads y ventas (pendiente)
-
----
-
-## 📦 Base de Datos
-
-### Tablas en Supabase
-
-#### `clients`
-Cuentas de Instagram conectadas
-- Información de la cuenta
-- Access tokens
-- Estado de la conexión
-
-#### `posts`
-Publicaciones de Instagram con métricas
-- Tipo de contenido (IMAGE, VIDEO, CAROUSEL, REELS)
-- Métricas: likes, comments, shares, saves
-- Alcance e impresiones
-- Engagement rate (calculado automáticamente)
-
-#### `account_stats`
-Estadísticas agregadas de la cuenta
-- Seguidores y seguidos
-- Promedios de engagement (7 y 30 días)
-- Alcance promedio
-- Total de interacciones
-
-#### `alerts`
-Sistema de alertas y notificaciones
-- Tipo de alerta (low_engagement, viral_content, low_reach)
-- Severidad (info, warning, error)
-- Estado (leída/no leída)
-
-#### `automation_logs`
-Logs de ejecuciones de workflows n8n
-- Nombre del workflow
-- Estado de ejecución
-- Posts sincronizados
-- Metadatos y errores
-
----
-
-## 🚀 Instalación
-
-### Requisitos Previos
-- Node.js 18+
-- npm o yarn
-- Cuenta de Supabase
-- Cuenta de Facebook Developer (para Instagram API)
-- n8n instalado (opcional, para automatización)
-
-### 1. Clonar el Repositorio
-```bash
-git clone https://github.com/VGV1421/instagram-dashboard-.git
-cd instagram-dashboard-
+```
+1. ANALIZAR COMPETIDORES (Apify)
+         |
+         v
+2. EXTRAER POSTS CON BUEN ENGAGEMENT
+         |
+         v
+3. ANALIZAR CON IA (OpenAI)
+         |
+         v
+4. GENERAR CONTENIDO NUEVO
+   - Posts con caption
+   - Reels con script
+   - Carruseles
+         |
+         v
+5. NOTIFICAR POR EMAIL (Resend)
+   - Contenido completo listo para copiar
+         |
+         v
+6. [OPCIONAL] GENERAR VIDEO CON AVATAR
+   - HeyGen + ElevenLabs
 ```
 
-### 2. Instalar Dependencias
+---
+
+## Funcionalidades Implementadas
+
+### Analisis de Competidores
+- **Scraping con Apify**: Extrae posts de cualquier cuenta publica de Instagram
+- **Gestion desde Dashboard**: Activar/desactivar competidores con un clic
+- **Gestion desde Excel**: Importar/exportar lista de competidores
+- **Sincronizacion inteligente**: Solo sincroniza competidores activos
+
+### Generacion de Contenido con IA
+- **Analisis de tendencias**: Identifica que tipo de contenido funciona mejor
+- **Generacion automatica**: Crea posts, reels y carruseles basados en analisis
+- **Prediccion de engagement**: Clasifica contenido por potencial (high/medium/low)
+- **Scripts para videos**: Genera guiones listos para grabar
+
+### Notificaciones por Email
+- **Reporte completo**: Recibe todo el contenido generado en tu email
+- **Listo para movil**: Ver y copiar contenido sin necesidad del dashboard
+- **Alertas de errores**: Notificaciones cuando algo falla
+
+### Automatizacion con n8n
+- **Ciclo diario**: Ejecuta todo el proceso cada 24 horas
+- **Sin intervencion**: Despierta con contenido nuevo en tu bandeja
+
+### Generacion de Videos (Opcional)
+- **Avatar parlante**: Usa HeyGen para crear videos con avatar
+- **Voz clonada**: Usa ElevenLabs para voz personalizada
+- **Gestion de fotos**: Sistema de fotos usadas/sin usar para variedad
+
+---
+
+## Stack Tecnologico
+
+| Componente | Tecnologia |
+|------------|------------|
+| Frontend | Next.js 16 + TypeScript + Tailwind CSS |
+| UI | shadcn/ui + Recharts + Lucide Icons |
+| Base de datos | Supabase (PostgreSQL) |
+| Scraping | Apify Instagram Scraper |
+| IA | OpenAI GPT-4o-mini |
+| Email | Resend API |
+| Automatizacion | n8n Workflows |
+| Video (opcional) | HeyGen + ElevenLabs |
+
+---
+
+## Instalacion Rapida
+
+### 1. Clonar e instalar
+
 ```bash
+git clone https://github.com/TU_USUARIO/instagram-dashboard.git
+cd instagram-dashboard
 npm install
 ```
 
-### 3. Configurar Variables de Entorno
-Crea un archivo `.env.local` en la raíz del proyecto:
+### 2. Configurar variables de entorno
 
-```env
-# SUPABASE
-NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=tu_supabase_service_role_key
+Copia `.env.example` a `.env.local` y configura:
 
-# INSTAGRAM GRAPH API
-INSTAGRAM_APP_ID=tu_app_id
-INSTAGRAM_APP_SECRET=tu_app_secret
-INSTAGRAM_USER_ID=tu_user_id
-INSTAGRAM_ACCESS_TOKEN=tu_access_token
+**Requeridas:**
+- `NEXT_PUBLIC_SUPABASE_URL` - URL de tu proyecto Supabase
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Clave publica de Supabase
+- `SUPABASE_SERVICE_ROLE_KEY` - Clave de servicio (backend)
+- `APIFY_API_TOKEN` - Para scraping de competidores
+- `OPENAI_API_KEY` - Para generacion de contenido
+- `RESEND_API_KEY` - Para notificaciones por email
+- `ALERT_EMAIL_TO` - Tu email para recibir notificaciones
 
-# N8N (opcional)
-N8N_URL=http://localhost:5678
-N8N_API_KEY=tu_n8n_api_key
-N8N_BASIC_AUTH_USER=tu_email
-N8N_BASIC_AUTH_PASSWORD=tu_password
+**Opcionales:**
+- `HEYGEN_API_KEY` - Para videos con avatar
+- `ELEVENLABS_API_KEY` - Para voz clonada
 
-# RESEND (para emails)
-RESEND_API_KEY=tu_resend_api_key
-RESEND_FROM_EMAIL=onboarding@resend.dev
+### 3. Configurar base de datos
 
-# OPENAI (opcional)
-OPENAI_API_KEY=tu_openai_api_key
-
-# NOTION (opcional)
-NOTION_API_KEY=tu_notion_api_key
-NOTION_BUYER_PERSONAS_PAGE_ID=tu_page_id
-NOTION_REFERENTES_PAGE_ID=tu_page_id
-```
-
-### 4. Configurar Base de Datos
-Ejecuta el schema SQL en tu proyecto de Supabase:
+Ejecuta el schema en Supabase SQL Editor:
 
 ```bash
-# El archivo está en:
-supabase/schema.sql
+# Archivo: supabase/schema.sql
 ```
 
-O copia el contenido desde: `supabase/COPIAR_Y_PEGAR_EN_SUPABASE.html`
+### 4. Iniciar aplicacion
 
-### 5. Ejecutar en Desarrollo
 ```bash
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+Abre http://localhost:3000
 
 ---
 
-## 📄 Páginas Implementadas
+## Uso del Sistema
 
-### `/` - Home
-Dashboard principal con métricas en tiempo real:
-- Tarjetas de métricas principales
-- Gráfico de distribución de engagement
-- Botón de sincronización manual
-- Estado de la cuenta
+### Agregar Competidores
 
-### `/tendencias` - Tendencias
-Análisis visual con gráficos interactivos:
-- Evolución del engagement rate
-- Alcance y likes por publicación
-- Distribución por tipo de contenido
-- Top 5 mejores posts
-- Tabla de rendimiento por tipo
+1. Ve a `/competidores` en el dashboard
+2. Haz clic en "Agregar Competidor"
+3. Introduce el username de Instagram (sin @)
+4. Activa/desactiva con el toggle
 
-### `/setup-token` - Helper Token
-Página auxiliar para generar y renovar tokens de Instagram:
-- Instrucciones paso a paso
-- Enlaces a Facebook Developer
-- Verificación de permisos
+**O desde Excel:**
+1. Llama a `GET /api/competitors/sync-csv` para exportar
+2. Edita `COMPETIDORES.xlsx` - columna SELECCIONAR: SI/NO
+3. Llama a `POST /api/competitors/sync-csv` para importar
 
----
+### Ejecutar Ciclo Manual
 
-## 🤖 Workflows de n8n
+```bash
+curl -X POST http://localhost:3000/api/automation/run-full-cycle \
+  -H "Content-Type: application/json" \
+  -d '{
+    "syncCompetitors": true,
+    "analyzeContent": true,
+    "generateContent": true,
+    "competitorsToSync": 100,
+    "contentToGenerate": 3
+  }'
+```
 
-### 1. `instagram-sync-daily.json`
-Sincronización automática cada 24 horas
-- Ejecuta `/api/instagram/sync`
-- Guarda logs en Supabase
-- Envía email de confirmación
+### Automatizar con n8n
 
-### 2. `instagram-sync-simple.json`
-Sincronización básica sin emails
-- Solo sincroniza datos
-- Guarda logs
-
-### 3. `instagram-alerts.json`
-Sistema de alertas cada 6 horas
-- Detecta anomalías en métricas
-- Crea alertas en BD
-- Envía emails solo cuando hay alertas
-
-### 4. `test-email.json`
-Workflow de prueba para validar SMTP
-- Un solo nodo de email
-- Útil para testing
-
-### Importar Workflows
 1. Inicia n8n: `n8n start`
-2. Abre http://localhost:5678
-3. Import from File → Selecciona el JSON
-4. Configura credenciales SMTP si es necesario
-5. Activa el workflow
-
-Ver guía completa en: `n8n-workflows/README.md`
+2. Importa `n8n-workflows/daily-automation-cycle.json`
+3. Activa el workflow
+4. El ciclo se ejecutara cada 24 horas automaticamente
 
 ---
 
-## 🔌 API Routes
+## API Endpoints
 
-### Instagram
-- `GET /api/instagram/profile` - Perfil de Instagram
-- `GET /api/instagram/media` - Posts y métricas
-- `POST /api/instagram/sync` - Sincronizar a Supabase
+### Competidores
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| GET | `/api/competitors` | Lista competidores |
+| POST | `/api/competitors` | Agregar competidor |
+| PATCH | `/api/competitors` | Activar/desactivar |
+| DELETE | `/api/competitors` | Eliminar competidor |
+| GET | `/api/competitors/sync-csv` | Exportar a Excel |
+| POST | `/api/competitors/sync-csv` | Importar desde Excel |
+| POST | `/api/competitors/sync-apify` | Sincronizar con Apify |
 
-### Analytics
-- `GET /api/analytics/trends` - Datos para gráficos
+### Contenido
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| POST | `/api/competitors/analyze` | Analizar posts con IA |
+| POST | `/api/content/generate-auto` | Generar contenido nuevo |
+| GET | `/api/scheduled-content` | Ver contenido programado |
 
-### n8n
-- `POST /api/n8n/log` - Guardar logs de workflows
+### Automatizacion
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| POST | `/api/automation/run-full-cycle` | Ejecutar ciclo completo |
+| GET | `/api/automation/run-full-cycle` | Estado de automatizacion |
+| POST | `/api/notifications` | Enviar notificacion manual |
 
-### Alertas
-- `POST /api/alerts/create` - Crear alertas automáticas
-
-### Testing
-- `GET /api/test-db` - Verificar conexión a Supabase
-
----
-
-## 📊 Progreso del Proyecto
-
-**Completado: 70% (7/10 módulos)**
-
-✅ Base de datos Supabase
-✅ Conexión Supabase
-✅ Layout principal (Sidebar + Header)
-✅ Instagram API con fallback a datos demo
-✅ Sincronización a Supabase
-✅ Automatización n8n
-✅ Página de Tendencias con gráficos
-⏳ Página de Alertas
-⏳ Página de Scripts de IA
-⏳ Otras páginas (Rendimiento, Personas, Embudo)
+### Video (Opcional)
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| POST | `/api/video/talking-avatar` | Generar video con avatar |
+| GET | `/api/video/talking-avatar` | Listar fotos disponibles |
 
 ---
 
-## 🔐 Seguridad
+## Base de Datos
 
-- ✅ Variables de entorno protegidas con `.gitignore`
-- ✅ Supabase Row Level Security (RLS) habilitado
-- ✅ Service Role Key solo en backend
-- ✅ Middleware de autenticación
-- ✅ Tokens de Instagram con expiración
+### Tablas Principales
 
-**IMPORTANTE:** Nunca compartas tu `.env.local` ni hagas commit de credenciales.
-
----
-
-## 📚 Documentación Adicional
-
-- **Dosier técnico completo:** `DOSIER_TECNICO_COMPLETO.md`
-- **Dosier funcional:** `DOSIER_TECNICO_FUNCIONAL_INSTAGRAM_DASHBOARD.md`
-- **Guía token Instagram:** `GUIA_TOKEN_INSTAGRAM.md`
-- **Guía SMTP n8n:** `n8n-workflows/GUIA_CONFIGURAR_SMTP.md`
-- **Progreso:** `PROGRESO_FINAL.md` y `RESUMEN_SESION.md`
+| Tabla | Descripcion |
+|-------|-------------|
+| `competitors` | Lista de competidores a analizar |
+| `competitor_posts` | Posts extraidos de competidores |
+| `scheduled_content` | Contenido generado pendiente de publicar |
+| `automation_logs` | Logs de ejecuciones automaticas |
+| `alerts` | Sistema de alertas |
 
 ---
 
-## 🐛 Troubleshooting
+## Estructura del Proyecto
 
-### Error: Token de Instagram expirado
-El dashboard usa datos de demostración cuando el token no es válido. Para renovar:
-1. Ve a `/setup-token`
-2. Sigue las instrucciones
-3. Actualiza `INSTAGRAM_ACCESS_TOKEN` en `.env.local`
-
-### Error: No se conecta a Supabase
-1. Verifica las credenciales en `.env.local`
-2. Ejecuta `npm run dev` de nuevo
-3. Revisa la consola del navegador
-
-### Workflows de n8n no se ejecutan
-1. Verifica que n8n esté corriendo: `n8n start`
-2. Revisa que el workflow esté **Activado** (toggle verde)
-3. Chequea los logs en n8n → Executions
+```
+instagram-dashboard/
+├── src/
+│   ├── app/
+│   │   ├── api/                    # API Routes
+│   │   │   ├── automation/         # Ciclo automatico
+│   │   │   ├── competitors/        # CRUD competidores
+│   │   │   ├── content/            # Generacion contenido
+│   │   │   ├── video/              # Videos con avatar
+│   │   │   └── notifications/      # Email
+│   │   ├── competidores/           # Pagina gestion competidores
+│   │   ├── tendencias/             # Pagina analytics
+│   │   └── page.tsx                # Home
+│   ├── components/                 # Componentes React
+│   └── lib/
+│       ├── supabase/               # Cliente Supabase
+│       ├── email/                  # Notificaciones
+│       └── competitors/            # Logica de competidores
+├── n8n-workflows/                  # Workflows de automatizacion
+├── supabase/                       # Schema SQL
+├── FOTOS AVATAR SIN USAR/          # Fotos para videos
+└── FOTOS AVAR USADAS/              # Fotos ya utilizadas
+```
 
 ---
 
-## 🤝 Contribuciones
+## Email de Notificacion
 
-Este es un proyecto privado. Para sugerencias o mejoras, contacta al propietario del repositorio.
+Cuando se completa el ciclo, recibiras un email con:
+
+- Resumen de competidores sincronizados
+- Numero de piezas de contenido generadas
+- **Contenido completo** de cada pieza:
+  - Tipo (Post/Reel/Carrusel)
+  - Tema
+  - Caption listo para copiar
+  - Script (si es reel)
+  - Hashtags recomendados
+  - Prediccion de engagement
 
 ---
 
-## 📝 Licencia
+## Troubleshooting
+
+### El scraping de Apify falla
+- Verifica que `APIFY_API_TOKEN` sea valido
+- Comprueba que el username existe y es publico
+- Revisa los creditos disponibles en Apify
+
+### No se genera contenido
+- Verifica `OPENAI_API_KEY`
+- Asegurate de tener competidores activos con posts
+- Revisa los logs en Supabase tabla `automation_logs`
+
+### No llegan emails
+- Verifica `RESEND_API_KEY` y `ALERT_EMAIL_TO`
+- En desarrollo usa `onboarding@resend.dev` como remitente
+- Revisa spam/promociones
+
+### n8n no ejecuta
+- Verifica que n8n este corriendo: `n8n start`
+- Asegurate que el workflow este activado (toggle verde)
+- Revisa Executions en n8n para ver errores
+
+---
+
+## Proximos Pasos (Roadmap)
+
+- [ ] Integracion con Instagram Publishing API
+- [ ] Calendario visual de contenido
+- [ ] A/B testing de captions
+- [ ] Analytics de rendimiento post-publicacion
+- [ ] Integracion con ManyChat para leads
+
+---
+
+## Licencia
 
 Proyecto privado. Todos los derechos reservados.
 
 ---
 
-## 🙏 Créditos
-
-**Desarrollado con:**
-- ❤️ Next.js
-- 🎨 Tailwind CSS
-- 📊 Recharts
-- 🗄️ Supabase
-- 🤖 n8n
-- ✨ shadcn/ui
-
-**Creado para:** @digitalmindmillonaria
-
----
-
-🤖 **Generated with [Claude Code](https://claude.com/claude-code)**
-Co-Authored-By: Claude <noreply@anthropic.com>
+Generado con [Claude Code](https://claude.com/claude-code)

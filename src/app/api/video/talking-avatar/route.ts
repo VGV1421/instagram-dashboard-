@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/simple-client';
+import { notifyVideoReady, notifyError } from '@/lib/email/notifications';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -135,6 +136,16 @@ export async function POST(request: Request) {
           }
         })
         .eq('id', contentId);
+    }
+
+    // PASO 6: Enviar notificación por email
+    if (videoResult.videoUrl) {
+      try {
+        await notifyVideoReady(videoResult.videoUrl);
+        console.log('📧 Email de video listo enviado');
+      } catch (emailError) {
+        console.error('Error enviando notificación de video:', emailError);
+      }
     }
 
     return NextResponse.json({
