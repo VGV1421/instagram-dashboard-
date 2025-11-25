@@ -19,7 +19,8 @@ import {
   DollarSign,
   Calendar,
   Zap,
-  Video
+  Video,
+  FolderOpen
 } from "lucide-react"
 
 const navigation = [
@@ -113,6 +114,13 @@ const navigation = [
     icon: Bell,
     badge: "0",
     gradient: "from-red-500 to-pink-500"
+  },
+  {
+    name: "Documentos",
+    href: "/documentos",
+    icon: FolderOpen,
+    badge: "Auto",
+    gradient: "from-blue-500 to-indigo-500"
   },
 ]
 
