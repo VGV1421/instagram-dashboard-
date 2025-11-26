@@ -40,18 +40,34 @@ export async function POST(request: Request) {
       types = ['post', 'reel', 'carousel'],
       niche = 'IA y emprendimiento digital',
       tone = 'profesional pero cercano',
-      saveToDb = true
+      saveToDb = true,
+      videoInfo = null // { duration: number, type: 'avatar', description: string }
     } = body;
+
+    // Si hay videoInfo, mostrarlo en consola
+    if (videoInfo) {
+      console.log(`🎬 Video info: ${videoInfo.duration}s, tipo: ${videoInfo.type}`);
+    }
 
     const supabase = supabaseAdmin;
 
-    // 1. Obtener posts exitosos de competidores para inspiración
+    // 1. Obtener posts exitosos de competidores ACTIVOS para inspiración
+    // Primero obtenemos los IDs de competidores activos
+    const { data: activeCompetitors } = await supabase
+      .from('competitors')
+      .select('id')
+      .eq('is_active', true);
+
+    const activeIds = activeCompetitors?.map(c => c.id) || [];
+
+    // Luego obtenemos los posts con más engagement de esos competidores
     const { data: topPosts } = await supabase
       .from('competitor_posts')
       .select('caption, media_type, engagement_rate, likes, comments')
-      .gte('engagement_rate', 3)
-      .order('engagement_rate', { ascending: false })
-      .limit(10);
+      .in('competitor_id', activeIds.length > 0 ? activeIds : ['none'])
+      .gte('likes', 50) // Posts con al menos 50 likes
+      .order('likes', { ascending: false })
+      .limit(15);
 
     // 2. Obtener último análisis de competidores
     const { data: lastAnalysis } = await supabase
@@ -63,10 +79,13 @@ export async function POST(request: Request) {
 
     // 3. Preparar contexto para generación
     const competitorContext = topPosts?.map(p => ({
-      caption: p.caption?.substring(0, 200),
+      caption: p.caption?.substring(0, 300),
       type: p.media_type,
-      engagement: p.engagement_rate
+      likes: p.likes || 0,
+      comments: p.comments || 0
     })) || [];
+
+    console.log(`📊 Posts de competidores activos: ${topPosts?.length || 0}`);
 
     const analysisPatterns = lastAnalysis?.analysis_data?.patterns || null;
 
@@ -82,7 +101,8 @@ export async function POST(request: Request) {
         tone,
         competitorContext,
         analysisPatterns,
-        i
+        i,
+        videoInfo // Pasar info del video para adaptar el script
       );
 
       if (content) {
@@ -123,53 +143,110 @@ async function generateSingleContent(
   tone: string,
   competitorContext: any[],
   patterns: any,
-  index: number
+  index: number,
+  videoInfo?: { duration: number; type: string; description: string } | null
 ): Promise<GeneratedContent | null> {
+
+  // Calcular caracteres máximos según duración del video
+  // Aproximadamente 15 caracteres por segundo de habla natural
+  const videoDuration = videoInfo?.duration || 30;
+  const maxChars = Math.round(videoDuration * 15);
+  const isAvatarVideo = videoInfo?.type === 'avatar';
+
+  // HOOKS PROBADOS que funcionan (basado en análisis de competidores)
+  const provenHooks = [
+    '¿Sabías que...',
+    'A ver novatos...',
+    'Esto es lo que nadie te dice sobre...',
+    '🚨 ¡Atención! Esto cambia todo...',
+    'No cometas este error...',
+    'Esta herramienta es increíble y GRATIS...',
+    'Uno de los mejores secretos de...',
+    'Resolviendo la duda más común...',
+    '¿Necesitas un empujoncito para...?'
+  ];
+
+  // TEMAS ESPECÍFICOS que generan engagement (basado en posts virales)
+  const viralTopics = [
+    'Herramientas de IA gratuitas que pocos conocen',
+    'Errores que cometen los novatos en marketing digital',
+    'Cómo automatizar tareas con IA paso a paso',
+    'Secretos para crear contenido que vende',
+    'Generadores de imágenes con IA gratis',
+    'Cómo empezar un negocio digital desde cero',
+    'Trucos de IA para ahorrar tiempo',
+    'Técnicas de ventas que usan los pros'
+  ];
+
+  // Seleccionar tema y hook diferente según el índice
+  const selectedTopic = viralTopics[index % viralTopics.length];
+  const selectedHook = provenHooks[index % provenHooks.length];
 
   const typePrompts: Record<string, string> = {
     post: `un post de Instagram con caption persuasivo`,
-    reel: `un Reel de Instagram con script de 30-60 segundos`,
+    reel: isAvatarVideo
+      ? `un script para video de ${Math.round(videoDuration)} segundos donde UNA PERSONA HABLA DIRECTAMENTE A CÁMARA`
+      : `un Reel de Instagram con script de ${Math.round(videoDuration)} segundos`,
     carousel: `un carrusel de Instagram con 5-7 slides`,
     story: `una historia de Instagram con poll/quiz interactivo`
   };
 
-  const competitorExamples = competitorContext.slice(0, 3)
-    .map(c => `- "${c.caption}" (${c.engagement}% engagement)`)
+  // Usar los posts con más likes como ejemplos REALES
+  const topExamples = competitorContext
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0))
+    .slice(0, 3)
+    .map(c => `[${c.likes} likes] "${(c.caption || '').substring(0, 150)}..."`)
     .join('\n');
 
-  const patternTips = patterns ? `
-PATRONES EXITOSOS IDENTIFICADOS:
-- Hooks efectivos: ${patterns.hooks?.slice(0, 3).join(', ') || 'N/A'}
-- Temas populares: ${patterns.topics?.slice(0, 3).join(', ') || 'N/A'}
-- CTAs que funcionan: ${patterns.ctas?.slice(0, 3).join(', ') || 'N/A'}
-- Hashtags recomendados: ${patterns.hashtags?.slice(0, 5).join(' ') || 'N/A'}
+  // Instrucciones especiales para videos de avatar
+  const avatarInstructions = isAvatarVideo ? `
+⚠️ CRÍTICO - VIDEO DE AVATAR (persona hablando a cámara):
+- Escribe EXACTAMENTE lo que dirá la persona, en primera persona
+- NO describas escenas ni acciones. Solo texto hablado.
+- Máximo ${maxChars} caracteres (${Math.round(videoDuration)} segundos)
+- Tono conversacional, como hablando con un amigo
+- Sin indicaciones técnicas, solo el texto que se dirá
 ` : '';
 
-  const prompt = `Eres un creador de contenido viral para Instagram en el nicho de ${niche}.
-Tu tono es ${tone}.
+  const prompt = `Eres un EXPERTO en contenido viral de Instagram para academias de IA y emprendimiento digital.
 
-OBJETIVO: Crear ${typePrompts[type]} que genere alto engagement y atraiga seguidores interesados en cursos de IA.
+CONTEXTO DE NEGOCIO:
+- Vendemos cursos y formaciones sobre IA y emprendimiento
+- Competidores: academias MIA (@miasantorinni) e IDA (@ganaconnay)
+- Target: personas que quieren aprender a monetizar con IA
 
-${competitorExamples ? `EJEMPLOS DE POSTS EXITOSOS DE COMPETIDORES:\n${competitorExamples}\n` : ''}
-${patternTips}
+POSTS QUE YA FUNCIONARON (datos reales de competidores):
+${topExamples || 'Sin ejemplos disponibles'}
 
-REQUISITOS:
-1. Hook potente en las primeras palabras
-2. Valor real y accionable
-3. Llamada a la acción clara
-4. 5-8 hashtags relevantes
-5. Emojis estratégicos (3-5)
-6. Que genere comentarios y guardados
+PATRONES PROBADOS QUE GENERAN ENGAGEMENT:
+- Palabras clave: "IA", "GRATIS", "herramienta", "paso a paso", "aprende"
+- CTAs efectivos: "Comenta X y te envío...", "Guarda este post"
+- Hooks: preguntas directas, urgencia, curiosidad
 
-Responde SOLO en JSON válido:
+TAREA: Crear ${typePrompts[type]} sobre "${selectedTopic}"
+${avatarInstructions}
+INSTRUCCIONES ESPECÍFICAS:
+1. Usa un hook estilo: "${selectedHook}" (adáptalo al tema)
+2. El contenido debe ser ESPECÍFICO y dar valor real, no genérico
+3. CTA: Pide que comenten una palabra para enviarles algo
+4. Tono: ${tone}, español de Latinoamérica
+5. Menciona herramientas o técnicas CONCRETAS
+${isAvatarVideo ? `6. Script de EXACTAMENTE ${maxChars} caracteres máximo` : ''}
+
+PROHIBIDO:
+- Contenido genérico tipo "la IA puede ayudarte"
+- Frases vacías sin información concreta
+- Más de 2-3 emojis
+
+Responde SOLO en JSON:
 {
-  "topic": "tema principal del contenido",
-  "caption": "el caption completo listo para publicar",
-  ${type === 'reel' ? '"script": "guión completo del reel con tiempos",' : ''}
+  "topic": "${selectedTopic}",
+  "caption": "caption completo para Instagram con CTA y hashtags integrados",
+  ${type === 'reel' ? `"script": "texto exacto que dirá la persona (máx ${maxChars} chars)",` : ''}
   ${type === 'carousel' ? '"slides": ["slide 1", "slide 2", "slide 3", "slide 4", "slide 5"],' : ''}
-  "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5"],
-  "suggested_media": "descripción de imagen/video sugerido",
-  "hook_used": "tipo de hook utilizado",
+  "hashtags": ["5-8 hashtags relevantes"],
+  "suggested_media": "ya tenemos el video",
+  "hook_used": "el hook que usaste",
   "engagement_prediction": "high/medium/low"
 }`;
 

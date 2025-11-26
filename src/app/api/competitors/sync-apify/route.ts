@@ -28,7 +28,7 @@ interface ApifyPost {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { competitorId } = body;
+    const { competitorId, limit = 5 } = body; // limit configurable, default 5
 
     if (!competitorId) {
       return NextResponse.json({
@@ -68,8 +68,10 @@ export async function POST(request: Request) {
 
     const apifyInput = {
       username: [username],
-      resultsLimit: 5 // Limitar a 5 posts para ahorrar créditos
+      resultsLimit: limit // Configurable via parámetro
     };
+
+    console.log(`   Solicitando ${limit} posts...`);
 
     console.log('📤 Enviando request a Apify...');
 

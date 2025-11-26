@@ -1,51 +1,42 @@
-SELECCIONAR,USERNAME,NOMBRE COMPLETO,CATEGORIA,POSTS ACTUALES,ACTIVO AHORA,ORIGEN
-,"backlinko","","Brian Dean",0,"NO","Base de Datos"
-,"randfish","","Rand Fishkin",0,"NO","Base de Datos"
-,"marketingprofs","","Ann Handley",0,"NO","Base de Datos"
-,"kimgarst","","Kim Garst",0,"NO","Base de Datos"
-,"marismith","","Mari Smith",0,"NO","Base de Datos"
-,"byrvm_contentcreation","","BYRVM Content",0,"NO","Base de Datos"
-,"romanlohace","","Roman Lo Hace",0,"NO","Base de Datos"
-,"madrerica.madrepobre","","Madre Rica Madre Pobre",0,"NO","Base de Datos"
-,"classyfunnels","","Classy Funnels",0,"NO","Base de Datos"
-,"sociallyybri","","Brianna",0,"NO","Base de Datos"
-,"fedecaball","","Fede Caball",0,"NO","Base de Datos"
-,"siempreganando_","","Siempre Ganando",0,"NO","Base de Datos"
-,"magazineluiza","","Lu do Magalu",0,"NO","Base de Datos"
-,"rocodelaportilla","","Roco de la Portilla",0,"NO","Base de Datos"
-,"blawko22","","Blawko",0,"NO","Base de Datos"
-,"miasantorinni","","Sin categoría",0,"NO","Base de Datos"
-SI,"ganaconnay","","Gana con Nay",5,"SI","Base de Datos"
-,"noonoouri","","Noonoouri",0,"NO","Base de Datos"
-,"alrinconoficial","","Al Rincón Oficial",0,"NO","Base de Datos"
-,"emprendeconcata","","Emprende con Cata",0,"NO","Base de Datos"
-,"imma.gram","","Imma",0,"NO","Base de Datos"
-,"marketingconalis","","Marketing con Alis",0,"NO","Base de Datos"
-,"realqaiqai","","Qai Qai",0,"NO","Base de Datos"
-,"converzzo","","Converzzo",0,"NO","Base de Datos"
-,"leticiaguidine","","Leticia Guidine",0,"NO","Base de Datos"
-,"stories","","Dili Prieto",0,"NO","Base de Datos"
-,"pabloprompt","","Pablo Prompt",0,"NO","Base de Datos"
-,"aitana.lopez.py","","Aitana Lopez",0,"NO","Base de Datos"
-,"herasmedia","","Heras Media",0,"NO","Base de Datos"
-,"shudu.gram","","Shudu",0,"NO","Base de Datos"
-,"bermudaisbae","","Bermuda",0,"NO","Base de Datos"
-,"sferro.ai","","SFerro AI",0,"NO","Base de Datos"
-,"sebachirinos","","Seba Chirinos",0,"NO","Base de Datos"
-,"lilmiquela","Lil Miquela","Influencer IA global",0,"NO","Ambas fuentes"
-,"angelapa_ia","","Angela PA IA",0,"NO","Base de Datos"
-,"maxmaxdata","","Max Data",0,"NO","Base de Datos"
-,"iapartners","","IA Partners",0,"NO","Base de Datos"
-,"el_hipster","","El Hipster",0,"NO","Base de Datos"
-,"eldinosauriodigital","","El Dinosaurio Digital",0,"NO","Base de Datos"
-,"garyvee","","Gary Vaynerchuk",0,"NO","Base de Datos"
-,"neilpatel","","Neil Patel",0,"NO","Base de Datos"
-,"@luisgomez_ai","Luis Gómez nNO","IA y automatización",0,"NO","Notion"
-,"@danielmarote","Daniel Marote","IA, negocios, automatización",0,"NO","Notion"
-,"@fit_aitana","Aitana López","Fitness, IA influencer",0,"NO","Notion"
-,"@jordebedoya","Jorge Bedoya NON","IA, datos, crecimiento",0,"NO","Notion"
-,"@juanmerodio","Juan Merodio","Marketing, ventas, IA",0,"NO","Notion"
-,"@vilmanunez","Vilma Núñez","Marketing, embudos, ventas",0,"NO","Notion"
-,"@community_gual","Paloma Gual","Crecimiento orgánico",0,"NO","Notion"
-,"@romualdfons","Romuald Fons","SEO, viralidad, YouTube",0,"NO","Notion"
-,"@itziaroltra","Itziar OltraNO","Marca personal, creatividad",0,"NO","Notion"
+SELECCIONAR,USERNAME,NOMBRE,ACTIVO,ULTIMO_SYNC
+SI,aitana.lopez.py,aitana.lopez.py,SI,21/11/2025
+SI,alrinconoficial,alrinconoficial,SI,22/11/2025
+SI,angelapa_ia,angelapa_ia,SI,22/11/2025
+SI,backlinko,backlinko,SI,21/11/2025
+SI,bermudaisbae,bermudaisbae,SI,21/11/2025
+SI,blawko22,blawko22,SI,21/11/2025
+SI,byrvm_contentcreation,byrvm_contentcreation,SI,21/11/2025
+SI,classyfunnels,classyfunnels,SI,21/11/2025
+SI,converzzo,converzzo,SI,21/11/2025
+SI,el_hipster,el_hipster,SI,21/11/2025
+SI,eldinosauriodigital,eldinosauriodigital,SI,21/11/2025
+SI,emprendeconcata,emprendeconcata,SI,21/11/2025
+SI,fedecaball,fedecaball,SI,21/11/2025
+SI,ganaconnay,ganaconnay,SI,21/11/2025
+SI,garyvee,garyvee,SI,21/11/2025
+SI,herasmedia,herasmedia,SI,21/11/2025
+SI,iapartners,iapartners,SI,22/11/2025
+SI,imma.gram,imma.gram,SI,21/11/2025
+SI,kimgarst,kimgarst,SI,21/11/2025
+SI,leticiaguidine,leticiaguidine,SI,21/11/2025
+SI,lilmiquela,lilmiquela,SI,22/11/2025
+SI,madrerica.madrepobre,madrerica.madrepobre,SI,21/11/2025
+SI,magazineluiza,magazineluiza,SI,21/11/2025
+SI,marismith,marismith,SI,21/11/2025
+SI,marketingconalis,marketingconalis,SI,21/11/2025
+SI,marketingprofs,marketingprofs,SI,21/11/2025
+SI,maxmaxdata,maxmaxdata,SI,21/11/2025
+SI,miasantorinni,miasantorinni,SI,21/11/2025
+SI,neilpatel,neilpatel,SI,21/11/2025
+SI,noonoouri,noonoouri,SI,21/11/2025
+SI,pabloprompt,pabloprompt,SI,21/11/2025
+SI,randfish,randfish,SI,21/11/2025
+SI,realqaiqai,realqaiqai,SI,22/11/2025
+SI,rocodelaportilla,rocodelaportilla,SI,21/11/2025
+SI,romanlohace,romanlohace,SI,21/11/2025
+SI,sebachirinos,sebachirinos,SI,21/11/2025
+SI,sferro.ai,sferro.ai,SI,21/11/2025
+SI,shudu.gram,shudu.gram,SI,21/11/2025
+SI,siempreganando_,siempreganando_,SI,21/11/2025
+SI,sociallyybri,sociallyybri,SI,21/11/2025
+SI,stories,stories,SI,21/11/2025

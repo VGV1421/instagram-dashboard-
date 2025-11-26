@@ -260,14 +260,76 @@ export async function notifyAutomationComplete(
 }
 
 /**
- * Notificación de video listo
+ * Notificacion de video listo para revision
  */
-export async function notifyVideoReady(videoUrl: string) {
-  return sendContentNotification({
-    type: 'video_ready',
-    title: 'Tu video con avatar hablando está listo para descargar.',
-    details: { videoUrl }
-  });
+export async function notifyVideoReady(videoUrl: string, contentId?: string, topic?: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  // Email personalizado con boton de aprobar
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0;">Video Listo para Revisar</h1>
+      </div>
+      <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+        ${topic ? `<p style="font-size: 16px; color: #374151;"><strong>Tema:</strong> ${topic}</p>` : ''}
+
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <p style="color: #6b7280; margin-bottom: 15px;">Tu video con avatar esta listo</p>
+
+          <a href="${videoUrl}"
+             style="display: inline-block; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+                    color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
+            Ver/Descargar Video
+          </a>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+          <p style="color: #4b5563; margin-bottom: 15px;">Si el video esta bien, apruebalo para programar la publicacion:</p>
+
+          ${contentId ? `
+            <a href="${baseUrl}/api/automation/publish-approved?contentId=${contentId}&action=publish"
+               style="display: inline-block; background: #10b981; color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-right: 10px;">
+              APROBAR Y PUBLICAR AHORA
+            </a>
+          ` : ''}
+
+          <a href="mailto:vgvtoringana@gmail.com?subject=RECHAZAR%20VIDEO&body=Rechazo%20el%20video.%20Por%20favor%20genera%20otro."
+             style="display: inline-block; background: #ef4444; color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            RECHAZAR
+          </a>
+        </div>
+
+        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin-top: 25px;">
+          <p style="color: #1e40af; margin: 0; font-size: 13px;">
+            <strong>Mejores horas para publicar en Instagram:</strong><br>
+            - Lunes a Viernes: 11:00 - 13:00 y 19:00 - 21:00<br>
+            - Sabado: 10:00 - 12:00<br>
+            - Domingo: 17:00 - 19:00
+          </p>
+        </div>
+
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 20px; text-align: center;">
+          Generado automaticamente por Instagram Dashboard
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: TO_EMAIL,
+      subject: '🎬 Video listo - Revisa y aprueba para publicar',
+      html
+    });
+
+    console.log('Email de video enviado:', result);
+    return { success: true, id: result.data?.id };
+  } catch (error: any) {
+    console.error('Error enviando email de video:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
