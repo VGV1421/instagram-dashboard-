@@ -20,7 +20,8 @@ import {
   Calendar,
   Zap,
   Video,
-  FolderOpen
+  FolderOpen,
+  LineChart
 } from "lucide-react"
 
 const navigation = [
@@ -86,6 +87,13 @@ const navigation = [
     icon: BarChart3,
     badge: null,
     gradient: "from-green-500 to-emerald-500"
+  },
+  {
+    name: "Analytics",
+    href: "/analytics",
+    icon: LineChart,
+    badge: "Pro",
+    gradient: "from-purple-500 to-indigo-500"
   },
   {
     name: "Personas",
