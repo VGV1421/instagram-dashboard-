@@ -1,0 +1,38 @@
+# Vercel Ignore - archivos que NO deben desplegarse
+
+# Carpetas de media personal
+FOTOS AVATAR SIN USAR/
+FOTOS AVAR USADAS/
+VIDEOS SIN USAR/
+VIDEO SELECCIONADO PARA PONER VOZ/
+VIDEOS AVATAR SIN USAR SIN SONIDO/
+CAPTURAS/
+errores/
+
+# Archivos grandes de documentación
+*.docx
+*.xlsx
+*.csv
+*.pptx
+DOSIER_*.md
+PROGRESO_*.md
+RESUMEN_*.md
+GUIA_*.md
+
+# Scripts de test locales
+test-*.js
+setup-client.js
+check-data.js
+verify-sync.js
+test-connection.js
+
+# Archivos temporales
+pass.txt
+*.log
+
+# n8n data
+.n8n/
+
+# Git
+.git/
+.gitignore
