@@ -3,10 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase/simple-client';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const { data: post, error } = await supabaseAdmin
       .from('posts')
