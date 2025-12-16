@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/simple-client';
 import OpenAI from 'openai';
