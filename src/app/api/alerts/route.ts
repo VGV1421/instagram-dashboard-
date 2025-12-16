@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     }
 
     if (severity && severity !== 'all') {
-      query = query.eq('severity', severity);
+      query = query.eq('severity', severity as any);
     }
 
     // Solo aplicar filtro de status si la columna existe
