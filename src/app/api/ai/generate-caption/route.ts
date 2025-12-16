@@ -80,12 +80,12 @@ export async function POST(request: Request) {
 
     // Preparar ejemplos de captions exitosos
     const exampleCaptions = topPosts && topPosts.length > 0
-      ? topPosts.map(p => p.caption).filter(Boolean).join('\n---\n')
+      ? topPosts.map((p: any) => p.caption).filter(Boolean).join('\n---\n')
       : '';
 
     // Obtener keywords y hashtags de posts exitosos
     const keywordsTable = useCompetitorData ? 'competitor_posts' : 'posts';
-    const { data: keywordsData } = await supabase
+    const { data: keywordsData } = await (supabase as any)
       .from(keywordsTable)
       .select('caption, engagement_rate')
       .not('caption', 'is', null)
