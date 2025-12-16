@@ -1,0 +1,40 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Ejecutar cada 5 días a las 3:00 AM UTC
+    # Formato: minuto hora día mes día-semana
+    - cron: '0 3 */5 * *'
+
+  # También permitir ejecución manual
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Keep-Alive Endpoint
+        run: |
+          echo "🏓 Pinging Supabase keep-alive endpoint..."
+
+          # Reemplaza con tu URL de producción
+          RESPONSE=$(curl -s -w "\n%{http_code}" https://tu-dashboard.vercel.app/api/keep-alive)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+
+          echo "Response: $BODY"
+          echo "HTTP Code: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Keep-alive successful!"
+          else
+            echo "❌ Keep-alive failed with code $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "⚠️ Supabase keep-alive failed!"
+          echo "Check your dashboard and Supabase status"
