@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
     if (useCompetitorData) {
       // Obtener posts de competidores
-      const { data, error: compError } = await supabase
+      const { data, error: compError } = await (supabase as any)
         .from('competitor_posts')
         .select('caption, engagement_rate, likes, comments')
         .order('engagement_rate', { ascending: false })
