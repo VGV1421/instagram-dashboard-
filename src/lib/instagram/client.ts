@@ -4,7 +4,7 @@
  * Documentación: https://developers.facebook.com/docs/instagram-api
  */
 
-const INSTAGRAM_GRAPH_API = 'https://graph.instagram.com';
+const INSTAGRAM_GRAPH_API = 'https://graph.facebook.com';
 
 export interface InstagramProfile {
   id: string;
