@@ -181,7 +181,7 @@ export function Sidebar() {
   }
 
   return (
-    <div className="flex h-full w-64 flex-col bg-gradient-to-b from-gray-50 to-white border-r shadow-lg">
+    <div className="flex h-full w-64 flex-col bg-gradient-to-b from-gray-50 to-white border-r shadow-lg shrink-0">
       {/* Logo mejorado */}
       <div className="flex h-16 items-center border-b px-6 bg-white">
         <div className="flex items-center gap-3">
