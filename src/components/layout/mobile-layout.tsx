@@ -4,26 +4,23 @@ import { useState } from "react";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { Menu, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <>
       {/* Mobile menu button - Solo visible en móvil */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-3 left-3 z-50 lg:hidden bg-white shadow-lg rounded-lg hover:bg-gray-100"
+      <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-3 left-3 z-50 lg:hidden bg-white shadow-lg rounded-lg p-2 hover:bg-gray-100"
       >
         {sidebarOpen ? (
           <X className="h-5 w-5" />
         ) : (
           <Menu className="h-5 w-5" />
         )}
-      </Button>
+      </button>
 
       {/* Sidebar overlay para móvil */}
       {sidebarOpen && (
@@ -34,24 +31,24 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Sidebar - Oculto en móvil por defecto */}
-      <div
+      <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-40
-          transform transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:translate-x-0
+          fixed top-0 left-0 bottom-0 z-40
+          lg:static lg:block
+          transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
         <Sidebar />
-      </div>
+      </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden w-full lg:w-auto">
+      <div className="flex flex-col min-h-screen w-full">
         <Header />
-        <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-gray-50">
           {children}
         </main>
       </div>
-    </div>
+    </>
   );
 }
