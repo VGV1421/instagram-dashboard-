@@ -18,8 +18,8 @@ jobs:
         run: |
           echo "🏓 Pinging Supabase keep-alive endpoint..."
 
-          # Reemplaza con tu URL de producción
-          RESPONSE=$(curl -s -w "\n%{http_code}" https://tu-dashboard.vercel.app/api/keep-alive)
+          # URL de producción en Vercel
+          RESPONSE=$(curl -s -w "\n%{http_code}" https://instagram-dashboard-ten.vercel.app/api/keep-alive)
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | head -n-1)
 
