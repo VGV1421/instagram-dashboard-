@@ -13,7 +13,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile menu button - Solo visible en móvil */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-3 left-3 z-50 md:hidden bg-white shadow-lg rounded-lg p-2 hover:bg-gray-100"
+        className="fixed top-3 left-3 z-[100] md:hidden bg-white shadow-lg rounded-lg p-2 hover:bg-gray-100"
       >
         {sidebarOpen ? (
           <X className="h-5 w-5" />
