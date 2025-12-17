@@ -9,7 +9,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <>
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Mobile menu button - Solo visible en móvil */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -30,25 +30,26 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Sidebar - Oculto en móvil por defecto */}
+      {/* Sidebar - Oculto en móvil por defecto, visible en desktop */}
       <aside
         className={`
           fixed top-0 left-0 bottom-0 z-40
-          lg:static lg:block
+          lg:static lg:z-auto
           transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0
         `}
       >
         <Sidebar />
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-col min-h-screen w-full">
+      <div className="flex flex-1 flex-col overflow-hidden w-full lg:w-auto">
         <Header />
         <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-gray-50">
           {children}
         </main>
       </div>
-    </>
+    </div>
   );
 }
