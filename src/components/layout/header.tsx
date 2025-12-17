@@ -113,16 +113,16 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-white/80 backdrop-blur-lg px-6 shadow-sm">
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-50 flex h-14 md:h-16 items-center justify-between border-b bg-white/80 backdrop-blur-lg px-3 md:px-6 shadow-sm">
+      <div className="flex items-center gap-2 md:gap-4 pl-10 lg:pl-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-            <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 text-xs">
+            <h1 className="text-base md:text-xl font-bold text-gray-900">Dashboard</h1>
+            <Badge className="hidden sm:inline-flex bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 text-xs">
               Pro
             </Badge>
           </div>
-          <p className="text-xs text-gray-500 flex items-center gap-2">
+          <p className="hidden sm:flex text-xs text-gray-500 items-center gap-2">
             <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
             {lastSync ? (
               <>Sincronizado: {lastSync.toLocaleTimeString("es-ES", {
@@ -139,21 +139,23 @@ export function Header() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 md:gap-2">
+        {/* Botón Sincronizar - siempre visible */}
         <Button
           onClick={handleSync}
           disabled={isSyncing}
-          className="gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/30 transition-all duration-200"
+          className="gap-1 md:gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg shadow-blue-500/30 transition-all duration-200 text-xs md:text-sm"
           size="sm"
         >
-          <Database className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-          {isSyncing ? "Sincronizando..." : "Sincronizar"}
+          <Database className={`h-3 w-3 md:h-4 md:w-4 ${isSyncing ? "animate-spin" : ""}`} />
+          <span className="hidden sm:inline">{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
         </Button>
 
+        {/* Botones solo visible en tablet/desktop */}
         <Button
           onClick={handleRefresh}
           variant="outline"
-          className="gap-2 hover:bg-gray-50"
+          className="hidden md:flex gap-2 hover:bg-gray-50"
           disabled={isSyncing}
           size="sm"
         >
@@ -164,7 +166,7 @@ export function Header() {
         <Button
           onClick={handleCleanupDemo}
           variant="outline"
-          className="gap-2 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+          className="hidden lg:flex gap-2 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
           size="sm"
           title="Eliminar posts de demostración"
         >
@@ -174,13 +176,14 @@ export function Header() {
 
         <Button
           variant="outline"
-          className="gap-2 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300"
+          className="hidden lg:flex gap-2 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300"
           size="sm"
         >
           <Sparkles className="h-4 w-4" />
           IA
         </Button>
 
+        {/* Notificaciones - siempre visible */}
         <Button
           variant="ghost"
           size="sm"
@@ -194,9 +197,11 @@ export function Header() {
           )}
         </Button>
 
+        {/* Settings - solo desktop */}
         <Button
           variant="ghost"
           size="sm"
+          className="hidden md:flex"
         >
           <Settings className="h-4 w-4" />
         </Button>
