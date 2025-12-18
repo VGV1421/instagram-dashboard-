@@ -7,16 +7,19 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     const currentToken = process.env.INSTAGRAM_ACCESS_TOKEN
+    const appId = process.env.INSTAGRAM_APP_ID
+    const appSecret = process.env.INSTAGRAM_APP_SECRET
 
-    if (!currentToken) {
+    if (!currentToken || !appId || !appSecret) {
       return NextResponse.json({
         success: false,
-        error: 'No hay token configurado'
+        error: 'Credenciales no configuradas'
       }, { status: 400 })
     }
 
-    // Llamar a la API de Instagram para renovar el token
-    const refreshUrl = `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${currentToken}`
+    // Para Page Access Tokens (Instagram Business), usar el endpoint de Facebook
+    // Este intercambia el token actual por uno de larga duración (60 días)
+    const refreshUrl = `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${currentToken}`
 
     const response = await fetch(refreshUrl, {
       method: 'GET'
@@ -32,9 +35,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // El nuevo token y su fecha de expiración
+    // El nuevo token
+    // Nota: Los Page Access Tokens de Facebook no caducan mientras la app tenga permisos
     const newToken = data.access_token
-    const expiresIn = data.expires_in // segundos hasta expiración
+    const expiresIn = data.expires_in || 5184000 // 60 días por defecto (en segundos)
     const expiresAt = new Date(Date.now() + (expiresIn * 1000))
 
     return NextResponse.json({
@@ -44,7 +48,8 @@ export async function POST(request: NextRequest) {
         new_token: newToken,
         expires_in_days: Math.floor(expiresIn / 86400),
         expires_at: expiresAt.toISOString(),
-        token_type: data.token_type
+        token_type: data.token_type || 'bearer',
+        note: data.expires_in ? 'Token con expiración fija' : 'Page Access Token (no caduca mientras tenga permisos)'
       }
     })
 
@@ -71,9 +76,9 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Verificar el token con la API de Instagram
+    // Verificar el token con la API de Facebook
     const userId = process.env.INSTAGRAM_USER_ID
-    const verifyUrl = `https://graph.instagram.com/v21.0/${userId}?fields=id,username&access_token=${currentToken}`
+    const verifyUrl = `https://graph.facebook.com/${userId}?fields=id,username&access_token=${currentToken}`
 
     const response = await fetch(verifyUrl)
     const data = await response.json()
