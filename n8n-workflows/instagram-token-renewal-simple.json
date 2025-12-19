@@ -1,5 +1,5 @@
 {
-  "name": "Instagram Token Auto-Renewal (Simplified)",
+  "name": "Instagram Token Auto-Renewal [SUPER-SIMPLE]",
   "nodes": [
     {
       "parameters": {
@@ -15,22 +15,22 @@
       "name": "Schedule: Every 50 days",
       "type": "n8n-nodes-base.scheduleTrigger",
       "position": [250, 300],
-      "typeVersion": 1,
+      "typeVersion": 1.2,
       "id": "schedule-token-renewal"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://instagram-dashboard-ten.vercel.app/api/instagram/refresh-token",
+        "url": "https://instagram-dashboard-ten.vercel.app/api/instagram/auto-renew",
         "options": {
-          "timeout": 30000
+          "timeout": 90000
         }
       },
-      "name": "Refresh Instagram Token",
+      "name": "Renew Token + Update Vercel + Redeploy",
       "type": "n8n-nodes-base.httpRequest",
       "position": [450, 300],
-      "typeVersion": 1,
-      "id": "refresh-token-api"
+      "typeVersion": 4.2,
+      "id": "auto-renew-all"
     },
     {
       "parameters": {
@@ -43,26 +43,24 @@
           ]
         }
       },
-      "name": "Check if renewal succeeded",
+      "name": "Check Success",
       "type": "n8n-nodes-base.if",
       "position": [650, 300],
-      "typeVersion": 1,
+      "typeVersion": 2,
       "id": "check-success"
     },
     {
       "parameters": {
         "fromEmail": "onboarding@resend.dev",
         "toEmail": "vgvtoringana@gmail.com",
-        "subject": "✅ Token de Instagram renovado - Acción requerida",
-        "text": "El token de Instagram se renovó automáticamente.\n\n🔑 NUEVO TOKEN:\n{{$node['Refresh Instagram Token'].json.data.new_token}}\n\nDetalles:\n- Expira en: {{$node['Refresh Instagram Token'].json.data.expires_in_days}} días\n- Fecha de expiración: {{$node['Refresh Instagram Token'].json.data.expires_at}}\n- Tipo: {{$node['Refresh Instagram Token'].json.data.token_type}}\n\n⚠️ ACCIÓN REQUERIDA:\nPor favor actualiza el token en Vercel ejecutando:\n\ncd C:\\Users\\Usuario\\CURSOR\\instagram-dashboard\nvercel env rm INSTAGRAM_ACCESS_TOKEN production --yes\necho \"[NUEVO_TOKEN]\" | vercel env add INSTAGRAM_ACCESS_TOKEN production\nvercel --prod --yes\n\nO copia el token y actualízalo manualmente en:\nhttps://vercel.com/vanes-projects-abf9b0a4/instagram-dashboard/settings/environment-variables",
-        "options": {
-          "allowUnauthorizedCerts": false
-        }
+        "subject": "✅ Token de Instagram renovado AUTOMATICAMENTE",
+        "text": "🎉 ¡TOKEN RENOVADO AUTOMATICAMENTE!\n\nEl token de Instagram se renovó y actualizó en Vercel automáticamente.\n\n📊 DETALLES:\n- Expira en: {{$node['Renew Token + Update Vercel + Redeploy'].json.data.token_renewal.expires_in_days}} días\n- Fecha: {{$node['Renew Token + Update Vercel + Redeploy'].json.data.token_renewal.expires_at}}\n- Variable actualizada: {{$node['Renew Token + Update Vercel + Redeploy'].json.data.vercel_update.env_updated}}\n- Redeploy: {{$node['Renew Token + Update Vercel + Redeploy'].json.data.vercel_update.deployment_triggered}}\n\n✅ NO SE REQUIERE NINGUNA ACCION MANUAL\n\nTodo funcionó automáticamente.\n\nDashboard: https://instagram-dashboard-ten.vercel.app\n\n---\nEste email es solo informativo.",
+        "options": {}
       },
-      "name": "Send Success Email with Token",
+      "name": "Send Success Email",
       "type": "n8n-nodes-base.emailSend",
       "position": [850, 200],
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "credentials": {
         "smtp": {
           "id": "smtp-resend",
@@ -75,16 +73,14 @@
       "parameters": {
         "fromEmail": "onboarding@resend.dev",
         "toEmail": "vgvtoringana@gmail.com",
-        "subject": "❌ Error al renovar token de Instagram",
-        "text": "Hubo un error al renovar el token de Instagram automáticamente.\n\nError: {{$node['Refresh Instagram Token'].json.error}}\n\nPor favor, renueva el token manualmente en:\nhttps://instagram-dashboard-ten.vercel.app/setup-token\n\nO genera un nuevo token en:\nhttps://developers.facebook.com/tools/explorer/",
-        "options": {
-          "allowUnauthorizedCerts": false
-        }
+        "subject": "❌ ERROR en renovación automática de token",
+        "text": "⚠️ ERROR EN LA RENOVACION AUTOMATICA\n\nHubo un error:\n\n{{$node['Renew Token + Update Vercel + Redeploy'].json.error}}\n\n🔧 ACCION REQUERIDA:\nGenera un nuevo token manualmente:\nhttps://instagram-dashboard-ten.vercel.app/setup-token\n\n---\nDashboard: https://instagram-dashboard-ten.vercel.app",
+        "options": {}
       },
       "name": "Send Error Email",
       "type": "n8n-nodes-base.emailSend",
       "position": [850, 400],
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "credentials": {
         "smtp": {
           "id": "smtp-resend",
@@ -92,72 +88,6 @@
         }
       },
       "id": "send-error-email"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://instagram-dashboard-ten.vercel.app/api/n8n/log",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "workflow_name",
-              "value": "Instagram Token Auto-Renewal"
-            },
-            {
-              "name": "status",
-              "value": "success"
-            },
-            {
-              "name": "message",
-              "value": "Token renovado - Email enviado con instrucciones"
-            },
-            {
-              "name": "expires_in_days",
-              "value": "={{$node['Refresh Instagram Token'].json.data.expires_in_days}}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 10000
-        }
-      },
-      "name": "Log Success to Database",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [1050, 200],
-      "typeVersion": 1,
-      "id": "log-success"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://instagram-dashboard-ten.vercel.app/api/n8n/log",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "workflow_name",
-              "value": "Instagram Token Auto-Renewal"
-            },
-            {
-              "name": "status",
-              "value": "error"
-            },
-            {
-              "name": "message",
-              "value": "={{$node['Refresh Instagram Token'].json.error}}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 10000
-        }
-      },
-      "name": "Log Error to Database",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [1050, 400],
-      "typeVersion": 1,
-      "id": "log-error"
     }
   ],
   "connections": {
@@ -165,29 +95,29 @@
       "main": [
         [
           {
-            "node": "Refresh Instagram Token",
+            "node": "Renew Token + Update Vercel + Redeploy",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Refresh Instagram Token": {
+    "Renew Token + Update Vercel + Redeploy": {
       "main": [
         [
           {
-            "node": "Check if renewal succeeded",
+            "node": "Check Success",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check if renewal succeeded": {
+    "Check Success": {
       "main": [
         [
           {
-            "node": "Send Success Email with Token",
+            "node": "Send Success Email",
             "type": "main",
             "index": 0
           }
@@ -195,28 +125,6 @@
         [
           {
             "node": "Send Error Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Success Email with Token": {
-      "main": [
-        [
-          {
-            "node": "Log Success to Database",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Error Email": {
-      "main": [
-        [
-          {
-            "node": "Log Error to Database",
             "type": "main",
             "index": 0
           }
@@ -236,9 +144,13 @@
     {
       "name": "instagram",
       "id": "ig-tag"
+    },
+    {
+      "name": "100-automatico",
+      "id": "auto-complete-tag"
     }
   ],
   "triggerCount": 1,
-  "updatedAt": "2025-01-18T00:00:00.000Z",
-  "versionId": "2"
+  "updatedAt": "2025-01-18T12:35:00.000Z",
+  "versionId": "1"
 }
