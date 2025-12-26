@@ -13,7 +13,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile menu button - Solo visible en móvil */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-3 left-3 z-[100] md:hidden bg-white shadow-lg rounded-lg p-2 hover:bg-gray-100"
+        className="fixed top-3 left-3 z-[60] md:hidden bg-white shadow-lg rounded-lg p-2 hover:bg-gray-100"
       >
         {sidebarOpen ? (
           <X className="h-5 w-5" />
@@ -46,7 +46,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden w-full md:w-auto">
         <Header />
-        <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-gray-50">
+        <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-gray-50 pt-2">
           {children}
         </main>
       </div>

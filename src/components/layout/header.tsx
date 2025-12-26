@@ -113,8 +113,8 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 md:h-16 items-center justify-between border-b bg-white/80 backdrop-blur-lg px-3 md:px-6 shadow-sm">
-      <div className="flex items-center gap-2 md:gap-4 pl-12 md:pl-0">
+    <header className="sticky top-0 z-50 flex h-14 md:h-16 items-center justify-between border-b bg-white/95 backdrop-blur-lg px-3 md:px-6 shadow-md">
+      <div className="flex items-center gap-2 md:gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-base md:text-xl font-bold text-gray-900">Dashboard</h1>

@@ -1,0 +1,292 @@
+{
+  "name": "Instagram - Aprobación de Contenido (Webhook)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "approve-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Aprobación",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "approve-content",
+      "notes": "Recibe POST con batchId y proposalIndex"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer datos del webhook\nconst body = $input.first().json.body || {};\n\nconst approval = {\n  batchId: body.batchId || $input.first().json.batchId,\n  proposalIndex: body.proposalIndex !== undefined ? body.proposalIndex : $input.first().json.proposalIndex,\n  proposalId: body.proposalId || $input.first().json.proposalId,\n  timestamp: new Date().toISOString()\n};\n\n// Validar que tengamos los datos necesarios\nif (!approval.batchId && !approval.proposalId) {\n  throw new Error('Se requiere batchId o proposalId');\n}\n\nif (approval.proposalIndex === undefined && !approval.proposalId) {\n  throw new Error('Se requiere proposalIndex o proposalId');\n}\n\nreturn [{ json: approval }];"
+      },
+      "id": "extract-data",
+      "name": "Extraer Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "notes": "Valida y extrae batchId y proposalIndex"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL || 'http://localhost:3000' }}/api/automation/approve-content",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"proposalIndex\": {{ $json.proposalIndex }}\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "approve-content",
+      "name": "Aprobar Contenido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [750, 300],
+      "notes": "Llama al endpoint que aprueba y genera el video"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "¿Aprobado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesar resultado de aprobación\nconst data = $input.first().json.data || {};\n\nconst result = {\n  success: true,\n  contentId: data.contentId,\n  proposal: data.proposal || {},\n  video: data.video || null,\n  nextSteps: data.nextSteps,\n  timestamp: new Date().toISOString()\n};\n\n// Si se generó video, extraer detalles\nif (result.video && result.video.url) {\n  result.videoGenerated = true;\n  result.videoUrl = result.video.url;\n  result.videoStatus = result.video.status;\n} else {\n  result.videoGenerated = false;\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "process-approval",
+      "name": "Procesar Aprobación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 200],
+      "notes": "Extrae detalles del contenido aprobado"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Contenido aprobado exitosamente\",\n  \"data\": {\n    \"contentId\": \"{{ $json.contentId }}\",\n    \"type\": \"{{ $json.proposal.type }}\",\n    \"topic\": \"{{ $json.proposal.topic }}\",\n    \"videoGenerated\": {{ $json.videoGenerated }},\n    \"nextSteps\": \"{{ $json.nextSteps }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respuesta Éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1500, 100],
+      "notes": "Retorna respuesta HTTP 200"
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "smtpApi",
+        "fromEmail": "onboarding@resend.dev",
+        "toEmail": "={{ $env.NOTIFICATION_EMAIL || 'vgvtoringana@gmail.com' }}",
+        "subject": "=✅ Contenido aprobado: {{ $json.proposal.topic }}",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 12px 12px 0 0;\">\n    <h1 style=\"color: white; margin: 0;\">✅ Contenido Aprobado</h1>\n  </div>\n  \n  <div style=\"background: #f0fdf4; padding: 25px; border-radius: 0 0 12px 12px;\">\n    <p style=\"color: #333; margin-bottom: 20px;\">\n      Has aprobado la siguiente propuesta de contenido:\n    </p>\n    \n    <div style=\"background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #10b981;\">\n      <h3 style=\"color: #059669; margin-top: 0;\">{{ $json.proposal.type.toUpperCase() }}</h3>\n      <p style=\"color: #333; font-size: 16px; font-weight: bold;\">{{ $json.proposal.topic }}</p>\n    </div>\n    \n    {{ $json.videoGenerated ? `\n      <div style=\"background: #dbeafe; padding: 15px; border-radius: 8px; margin-bottom: 20px;\">\n        <h4 style=\"color: #1e40af; margin-top: 0;\">🎥 Video Generado</h4>\n        <p style=\"color: #1e3a8a; margin: 5px 0;\">Estado: ${$json.videoStatus}</p>\n        <p style=\"color: #64748b; font-size: 13px; margin: 10px 0 0 0;\">\n          Recibirás otro email cuando el video esté listo para publicar.\n        </p>\n      </div>\n    ` : `\n      <div style=\"background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px;\">\n        <p style=\"color: #92400e; margin: 0;\">\n          📝 Contenido guardado y listo. Puedes publicarlo desde el dashboard.\n        </p>\n      </div>\n    ` }}\n    \n    <div style=\"background: white; padding: 15px; border-radius: 8px;\">\n      <p style=\"color: #666; font-size: 14px; margin: 0;\">\n        <strong>Próximos pasos:</strong><br>\n        {{ $json.nextSteps }}\n      </p>\n    </div>\n    \n    <p style=\"color: #888; font-size: 12px; margin-top: 25px; text-align: center;\">\n      Content ID: {{ $json.contentId }}<br>\n      {{ $json.timestamp }}\n    </p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "notify-approval",
+      "name": "Email Aprobación",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1500, 250],
+      "credentials": {
+        "smtpApi": {
+          "id": "resend-smtp",
+          "name": "Resend SMTP"
+        }
+      },
+      "notes": "Confirma la aprobación por email"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL || 'http://localhost:3000' }}/api/n8n/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow_name\": \"content-approval-webhook\",\n  \"execution_id\": \"{{ $execution.id }}\",\n  \"status\": \"success\",\n  \"execution_data\": {{ JSON.stringify($json) }}\n}"
+      },
+      "id": "log-approval",
+      "name": "Registrar Aprobación",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1750, 200],
+      "notes": "Guarda log en Supabase"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": \"Error al aprobar contenido\",\n  \"error\": {{ JSON.stringify($json) }}\n}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-error",
+      "name": "Respuesta Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1250, 450],
+      "notes": "Retorna respuesta HTTP 500"
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "smtpApi",
+        "fromEmail": "onboarding@resend.dev",
+        "toEmail": "={{ $env.NOTIFICATION_EMAIL || 'vgvtoringana@gmail.com' }}",
+        "subject": "❌ Error al aprobar contenido",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: #ef4444; padding: 30px; border-radius: 12px 12px 0 0;\">\n    <h1 style=\"color: white; margin: 0;\">❌ Error en Aprobación</h1>\n  </div>\n  \n  <div style=\"background: #fef2f2; padding: 25px; border-radius: 0 0 12px 12px;\">\n    <p style=\"color: #333;\">Se produjo un error al aprobar el contenido.</p>\n    \n    <div style=\"background: white; padding: 15px; border-radius: 8px; margin: 20px 0;\">\n      <h3 style=\"color: #dc2626; margin-top: 0;\">Detalles del error:</h3>\n      <pre style=\"background: #f9fafb; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px;\">{{ JSON.stringify($json, null, 2) }}</pre>\n    </div>\n    \n    <p style=\"color: #888; font-size: 12px; margin-top: 25px; text-align: center;\">\n      Execution ID: {{ $execution.id }}<br>\n      {{ new Date().toISOString() }}\n    </p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "id": "notify-error",
+      "name": "Email Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1500, 450],
+      "credentials": {
+        "smtpApi": {
+          "id": "resend-smtp",
+          "name": "Resend SMTP"
+        }
+      },
+      "notes": "Notifica el error por email"
+    }
+  ],
+  "connections": {
+    "Webhook Aprobación": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos": {
+      "main": [
+        [
+          {
+            "node": "Aprobar Contenido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aprobar Contenido": {
+      "main": [
+        [
+          {
+            "node": "¿Aprobado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Aprobado?": {
+      "main": [
+        [
+          {
+            "node": "Procesar Aprobación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Aprobación": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Éxito",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Aprobación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Aprobación": {
+      "main": [
+        [
+          {
+            "node": "Registrar Aprobación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Error": {
+      "main": [
+        [
+          {
+            "node": "Email Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "instagram"
+    },
+    {
+      "name": "content-approval"
+    }
+  ],
+  "meta": {
+    "instanceId": "instagram-dashboard"
+  }
+}

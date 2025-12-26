@@ -76,9 +76,9 @@ export async function POST(request: Request) {
     console.log(`Provider seleccionado: ${provider.toUpperCase()}`);
     console.log(`ElevenLabs: ${elevenLabsKey ? 'SI' : 'NO'}`);
 
-    // PASO 1: Obtener foto de avatar sin usar
-    console.log('Buscando avatar disponible...');
-    const avatarResult = await getUnusedAvatar();
+    // PASO 1: AGENTE SELECTOR - Seleccionar foto más adecuada según el tema
+    console.log('🤖 Agente Selector analizando fotos disponibles...');
+    const avatarResult = await selectBestAvatar(script);
 
     if (!avatarResult.success) {
       return NextResponse.json({
@@ -91,15 +91,17 @@ export async function POST(request: Request) {
 
     const avatarPath = avatarResult.path!;
     const avatarFilename = avatarResult.filename!;
-    console.log(`   Avatar: ${avatarFilename}`);
+    console.log(`✅ Avatar seleccionado: ${avatarFilename}`);
+    console.log(`📝 Razón: ${avatarResult.reason}`);
 
-    // PASO 2: Crear video
-    // Prioridad: HeyGen > D-ID + ElevenLabs > D-ID solo
+    // PASO 2: AGENTE GENERADOR - Crear video profesional
+    console.log('🎬 Agente Generador iniciando producción de video...');
+    console.log(`   Provider: ${provider.toUpperCase()}`);
     let videoResult;
 
     if (provider === 'heygen' && heygenKey) {
       // HeyGen - Mejor calidad, mas profesional
-      console.log('Creando video con HeyGen (calidad profesional)...');
+      console.log('   Generando con HeyGen (calidad premium)...');
 
       // Primero generar audio con ElevenLabs para voz espanola
       if (elevenLabsKey) {
@@ -163,7 +165,7 @@ export async function POST(request: Request) {
             video_generated: true,
             avatar_used: avatarFilename,
             video_id: videoResult.videoId,
-            provider: 'd-id',
+            provider: provider,
             generated_at: new Date().toISOString()
           }
         })
@@ -186,9 +188,9 @@ export async function POST(request: Request) {
         videoUrl: videoResult.videoUrl,
         videoId: videoResult.videoId,
         avatarUsed: avatarFilename,
-        provider: 'd-id',
+        provider: provider,
         status: videoResult.status,
-        message: 'Video generado exitosamente con D-ID!'
+        message: `Video generado exitosamente con ${provider === 'heygen' ? 'HeyGen (calidad profesional)' : 'D-ID'}!`
       }
     });
 
@@ -202,6 +204,140 @@ export async function POST(request: Request) {
 }
 
 // ============ FUNCIONES AUXILIARES ============
+
+/**
+ * AGENTE SELECTOR DE FOTO
+ * Analiza todas las fotos disponibles con GPT-4 Vision y selecciona
+ * la más adecuada según el tema y contenido del reel
+ */
+async function selectBestAvatar(script: string): Promise<{
+  success: boolean;
+  path?: string;
+  filename?: string;
+  reason?: string;
+}> {
+  try {
+    const files = await fs.readdir(AVATAR_UNUSED_PATH);
+    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+
+    if (imageFiles.length === 0) {
+      return { success: false };
+    }
+
+    console.log(`   Encontradas ${imageFiles.length} fotos para analizar`);
+
+    // Si solo hay 1 foto, usarla directamente
+    if (imageFiles.length === 1) {
+      const fullPath = path.join(AVATAR_UNUSED_PATH, imageFiles[0]);
+      return {
+        success: true,
+        path: fullPath,
+        filename: imageFiles[0],
+        reason: 'Única foto disponible'
+      };
+    }
+
+    // ANALIZAR FOTOS CON GPT-4 VISION
+    const OpenAI = (await import('openai')).default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Preparar imágenes en base64 (máximo 5 para no saturar)
+    const photosToAnalyze = imageFiles.slice(0, 5);
+    const imageDescriptions = await Promise.all(
+      photosToAnalyze.map(async (filename, index) => {
+        const imagePath = path.join(AVATAR_UNUSED_PATH, filename);
+        const imageBuffer = await fs.readFile(imagePath);
+        const base64Image = imageBuffer.toString('base64');
+        const ext = filename.split('.').pop()?.toLowerCase();
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+
+        return {
+          filename,
+          index: index + 1,
+          data: `data:${mimeType};base64,${base64Image}`
+        };
+      })
+    );
+
+    // Llamar a GPT-4 Vision para seleccionar la mejor foto
+    console.log('   Consultando a GPT-4 Vision para selección inteligente...');
+
+    const prompt = `Eres un agente especialista en selección de avatares para videos de Instagram Reels.
+
+TEMA DEL REEL:
+${script.slice(0, 500)}
+
+FOTOS DISPONIBLES:
+${imageDescriptions.map(img => `Foto ${img.index}: ${img.filename}`).join('\n')}
+
+TAREA:
+Analiza cada foto y selecciona LA MEJOR para este reel considerando:
+1. Expresión facial apropiada para el tema
+2. Iluminación y calidad de imagen
+3. Fondo profesional y no distractor
+4. Conexión emocional con el mensaje
+5. Calidad general de la foto
+
+RESPONDE EN ESTE FORMATO JSON:
+{
+  "selected_index": <número de foto seleccionada (1-${imageDescriptions.length})>,
+  "reason": "<razón breve en español de por qué esta foto es la mejor>"
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            ...imageDescriptions.map(img => ({
+              type: 'image_url' as const,
+              image_url: { url: img.data }
+            }))
+          ]
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.3
+    });
+
+    const response = completion.choices[0]?.message?.content || '{}';
+    const selection = JSON.parse(response.match(/\{[\s\S]*\}/)?.[0] || '{}');
+
+    const selectedIndex = selection.selected_index - 1;
+    const selectedFile = imageDescriptions[selectedIndex]?.filename || imageFiles[0];
+    const fullPath = path.join(AVATAR_UNUSED_PATH, selectedFile);
+
+    console.log(`   ✅ Selección: ${selectedFile}`);
+    console.log(`   📝 ${selection.reason}`);
+
+    return {
+      success: true,
+      path: fullPath,
+      filename: selectedFile,
+      reason: selection.reason || 'Seleccionada por IA'
+    };
+
+  } catch (error: any) {
+    console.error('Error en selección inteligente:', error.message);
+    // Fallback: seleccionar primera foto disponible
+    const files = await fs.readdir(AVATAR_UNUSED_PATH);
+    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+
+    if (imageFiles.length === 0) {
+      return { success: false };
+    }
+
+    const fullPath = path.join(AVATAR_UNUSED_PATH, imageFiles[0]);
+    return {
+      success: true,
+      path: fullPath,
+      filename: imageFiles[0],
+      reason: 'Fallback: primera foto disponible'
+    };
+  }
+}
 
 async function getUnusedAvatar(): Promise<{ success: boolean; path?: string; filename?: string }> {
   try {
