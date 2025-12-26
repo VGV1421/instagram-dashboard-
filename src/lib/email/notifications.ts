@@ -14,6 +14,7 @@ export interface ContentNotification {
     videoUrl?: string;
     error?: string;
     executionTime?: number;
+    batchId?: string;  // Para botones de aprobación
     generatedContent?: Array<{
       type: string;
       topic: string;
@@ -21,6 +22,11 @@ export interface ContentNotification {
       script?: string;
       hashtags?: string[];
       engagement_prediction: string;
+      photo?: string;  // Nombre del archivo de avatar
+      photoPath?: string;  // Ruta completa del avatar
+      photoScore?: number;  // Score del avatar (0-100)
+      photoReason?: string;  // Razón de selección
+      photoBase64?: string;  // Imagen en base64 para mostrar en email
     }>;
   };
 }
@@ -171,7 +177,13 @@ export async function sendContentNotification(notification: ContentNotification)
               <p style="margin: 5px 0; color: #374151;">⏱️ Tiempo: <strong>${Math.round((details.executionTime || 0) / 1000)}s</strong></p>
             </div>
 
-            ${details.generatedContent?.map((content, index) => `
+            ${details.generatedContent?.map((content, index) => {
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+              const approveUrl = details.batchId
+                ? `${baseUrl}/api/automation/approve-content?batchId=${details.batchId}&proposalIndex=${index}`
+                : null;
+
+              return `
               <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid ${content.type === 'reel' ? '#ec4899' : content.type === 'carousel' ? '#8b5cf6' : '#6366f1'};">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                   <span style="background: ${content.type === 'reel' ? '#fce7f3' : content.type === 'carousel' ? '#ede9fe' : '#e0e7ff'}; color: ${content.type === 'reel' ? '#be185d' : content.type === 'carousel' ? '#6d28d9' : '#4338ca'}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
@@ -183,6 +195,32 @@ export async function sendContentNotification(notification: ContentNotification)
                 </div>
 
                 <h4 style="color: #1f2937; margin: 0 0 10px 0; font-size: 16px;">${content.topic}</h4>
+
+                ${content.photo ? `
+                  <div style="background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%); padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #fbcfe8;">
+                    <h5 style="color: #be185d; margin: 0 0 8px 0; font-size: 13px; font-weight: bold;">📸 AVATAR SELECCIONADO POR IA</h5>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                      ${content.photo ? `
+                        <div style="flex-shrink: 0;">
+                          <img src="cid:${content.photo}" alt="Avatar" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #ec4899;" />
+                        </div>
+                      ` : ''}
+                      <div style="flex: 1;">
+                        <p style="margin: 4px 0; font-size: 12px; color: #831843;">
+                          <strong>Archivo:</strong> ${content.photo}
+                        </p>
+                        <p style="margin: 4px 0; font-size: 12px; color: #831843;">
+                          <strong>Score:</strong> <span style="background: ${content.photoScore && content.photoScore >= 80 ? '#86efac' : '#fde68a'}; color: ${content.photoScore && content.photoScore >= 80 ? '#14532d' : '#78350f'}; padding: 2px 8px; border-radius: 12px; font-weight: bold;">${content.photoScore || 0}/100</span>
+                        </p>
+                        ${content.photoReason ? `
+                          <p style="margin: 4px 0; font-size: 11px; color: #9f1239; font-style: italic;">
+                            💡 ${content.photoReason}
+                          </p>
+                        ` : ''}
+                      </div>
+                    </div>
+                  </div>
+                ` : ''}
 
                 <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
                   <p style="color: #374151; margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${content.caption.slice(0, 500)}${content.caption.length > 500 ? '...' : ''}</p>
@@ -200,8 +238,22 @@ export async function sendContentNotification(notification: ContentNotification)
                 ${content.hashtags && content.hashtags.length > 0 ? `
                   <p style="color: #6366f1; font-size: 12px; margin: 10px 0 0 0;">${content.hashtags.slice(0, 10).join(' ')}</p>
                 ` : ''}
+
+                ${approveUrl ? `
+                  <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                    <a href="${approveUrl}"
+                       style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                              color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
+                      ✅ APROBAR ESTA PROPUESTA
+                    </a>
+                    <p style="color: #9ca3af; font-size: 11px; margin: 8px 0 0 0;">
+                      Click para generar video y programar publicación
+                    </p>
+                  </div>
+                ` : ''}
               </div>
-            `).join('') || '<p style="color: #6b7280;">No hay contenido generado</p>'}
+            `;
+            }).join('') || '<p style="color: #6b7280;">No hay contenido generado</p>'}
 
             <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
               <p style="color: #9ca3af; font-size: 12px; margin: 0;">
@@ -358,16 +410,114 @@ export async function notifyFullReport(
     script?: string;
     hashtags?: string[];
     engagement_prediction: string;
-  }>
+    photo?: string;  // Nombre del archivo de avatar
+    photoPath?: string;  // Ruta completa del avatar
+    photoScore?: number;  // Score del avatar (0-100)
+    photoReason?: string;  // Razón de selección
+    photoBase64?: string;  // Imagen en base64 para mostrar en email
+  }>,
+  batchId?: string  // Agregar batchId para botones de aprobación
 ) {
-  return sendContentNotification({
-    type: 'full_report',
-    title: 'Tu contenido de Instagram está listo',
-    details: {
-      contentCount,
-      competitorsSynced,
-      executionTime,
-      generatedContent
-    }
-  });
+  // Preparar attachments con las fotos
+  const attachments = generatedContent
+    .filter(c => c.photoBase64 && c.photo)
+    .map(c => ({
+      filename: c.photo!,
+      content: c.photoBase64!.split('base64,')[1], // Remover el prefijo data:image/...;base64,
+      cid: c.photo! // Content-ID para referenciar en el HTML
+    }));
+
+  // Generar HTML del email
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">📱 Contenido Listo para Publicar</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Generado automáticamente por tu Dashboard</p>
+      </div>
+      <div style="background: #f9fafb; padding: 20px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <h3 style="color: #6366f1; margin: 0 0 10px 0; font-size: 14px;">📊 RESUMEN</h3>
+          <p style="margin: 5px 0; color: #374151;">✅ Competidores analizados: <strong>${competitorsSynced}</strong></p>
+          <p style="margin: 5px 0; color: #374151;">✅ Contenido generado: <strong>${contentCount}</strong> piezas</p>
+          <p style="margin: 5px 0; color: #374151;">⏱️ Tiempo: <strong>${Math.round(executionTime / 1000)}s</strong></p>
+        </div>
+        ${generatedContent.map((content, index) => {
+          const approveUrl = batchId
+            ? `${baseUrl}/api/automation/approve-content?batchId=${batchId}&proposalIndex=${index}`
+            : null;
+
+          return `
+          <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid ${content.type === 'reel' ? '#ec4899' : '#6366f1'};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="background: ${content.type === 'reel' ? '#fce7f3' : '#e0e7ff'}; color: ${content.type === 'reel' ? '#be185d' : '#4338ca'}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                ${content.type === 'reel' ? '🎬 REEL' : '📝 POST'}
+              </span>
+              <span style="background: ${content.engagement_prediction === 'high' ? '#d1fae5' : '#fef3c7'}; color: ${content.engagement_prediction === 'high' ? '#065f46' : '#92400e'}; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                ${content.engagement_prediction === 'high' ? '🔥 Alto engagement' : '📈 Medio'}
+              </span>
+            </div>
+            <h4 style="color: #1f2937; margin: 0 0 10px 0; font-size: 16px;">${content.topic}</h4>
+            ${content.photo ? `
+              <div style="background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%); padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #fbcfe8;">
+                <h5 style="color: #be185d; margin: 0 0 8px 0; font-size: 13px; font-weight: bold;">📸 AVATAR SELECCIONADO POR IA</h5>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                  <div style="flex-shrink: 0;">
+                    <img src="cid:${content.photo}" alt="Avatar" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #ec4899;" />
+                  </div>
+                  <div style="flex: 1;">
+                    <p style="margin: 4px 0; font-size: 12px; color: #831843;"><strong>Archivo:</strong> ${content.photo}</p>
+                    <p style="margin: 4px 0; font-size: 12px; color: #831843;"><strong>Score:</strong> <span style="background: ${content.photoScore && content.photoScore >= 80 ? '#86efac' : '#fde68a'}; color: ${content.photoScore && content.photoScore >= 80 ? '#14532d' : '#78350f'}; padding: 2px 8px; border-radius: 12px; font-weight: bold;">${content.photoScore || 0}/100</span></p>
+                    ${content.photoReason ? `<p style="margin: 4px 0; font-size: 11px; color: #9f1239; font-style: italic;">💡 ${content.photoReason}</p>` : ''}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+            <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+              <p style="color: #374151; margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${content.caption.slice(0, 500)}${content.caption.length > 500 ? '...' : ''}</p>
+            </div>
+            ${content.script ? `
+              <details style="margin-top: 10px;">
+                <summary style="color: #6366f1; cursor: pointer; font-size: 13px; font-weight: 500;">🎙️ Ver script del video</summary>
+                <div style="background: #faf5ff; padding: 10px; border-radius: 6px; margin-top: 8px;">
+                  <p style="color: #4c1d95; margin: 0; font-size: 13px; line-height: 1.5;">${content.script.slice(0, 400)}${content.script.length > 400 ? '...' : ''}</p>
+                </div>
+              </details>
+            ` : ''}
+            ${content.hashtags && content.hashtags.length > 0 ? `
+              <p style="color: #6366f1; font-size: 12px; margin: 10px 0 0 0;">${content.hashtags.slice(0, 10).join(' ')}</p>
+            ` : ''}
+            ${approveUrl ? `
+              <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                <a href="${approveUrl}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
+                  ✅ APROBAR ESTA PROPUESTA
+                </a>
+                <p style="color: #9ca3af; font-size: 11px; margin: 8px 0 0 0;">Click para generar video y programar publicación</p>
+              </div>
+            ` : ''}
+          </div>
+          `;
+        }).join('')}
+        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">🤖 Generado automáticamente por Instagram Dashboard<br>Copia y pega el contenido directamente en Instagram</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: TO_EMAIL,
+      subject: `📱 Tu contenido de Instagram está listo - ${contentCount} piezas`,
+      html,
+      attachments: attachments.length > 0 ? attachments : undefined
+    });
+
+    console.log('📧 Email enviado con', attachments.length, 'fotos adjuntas:', result);
+    return { success: true, id: result.data?.id };
+  } catch (error: any) {
+    console.error('❌ Error enviando email:', error);
+    return { success: false, error: error.message };
+  }
 }

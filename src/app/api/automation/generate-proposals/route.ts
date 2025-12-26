@@ -183,9 +183,9 @@ async function sendProposalEmail(
       ` : ''}
 
       <div style="text-align: center;">
-        <a href="mailto:vgvtoringana@gmail.com?subject=APROBAR%20PROPUESTA%20${i + 1}&body=Apruebo%20la%20propuesta%20${i + 1}%20(${p.type})%20-%20${encodeURIComponent(p.topic)}%0A%0ABatch%20ID:%20${batchId}"
+        <a href="${baseUrl}/api/automation/approve-content?batchId=${batchId}&proposalIndex=${i}"
            style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-          APROBAR ESTA OPCION
+          ✅ APROBAR ESTA OPCIÓN
         </a>
       </div>
     </div>
@@ -207,12 +207,13 @@ async function sendProposalEmail(
 
         ${proposalCards}
 
-        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin-top: 20px;">
-          <p style="color: #1e40af; margin: 0; font-size: 13px;">
-            <strong>Como aprobar:</strong><br>
-            1. Responde a este email con el numero (ej: "Apruebo la 2")<br>
-            2. O haz clic en el boton "APROBAR" de la opcion elegida<br>
-            3. El video se generara automaticamente con tu foto de avatar
+        <div style="background: #d1fae5; padding: 15px; border-radius: 8px; margin-top: 20px;">
+          <p style="color: #065f46; margin: 0; font-size: 13px;">
+            <strong>✅ Cómo aprobar:</strong><br>
+            1. Haz clic en el botón verde "✅ APROBAR" de la propuesta que te guste<br>
+            2. Se abrirá una página confirmando la aprobación<br>
+            3. El contenido se guardará listo para publicar<br>
+            4. Si es un reel, el video se generará automáticamente con tu avatar
           </p>
         </div>
 
