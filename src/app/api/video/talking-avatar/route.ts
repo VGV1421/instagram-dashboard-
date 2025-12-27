@@ -181,13 +181,22 @@ export async function POST(request: Request) {
 
     // PASO 4: Guardar en BD
     if (contentId) {
+      // Obtener metadata actual para no sobrescribirlo
+      const { data: currentContent } = await supabaseAdmin
+        .from('scheduled_content')
+        .select('metadata')
+        .eq('id', contentId)
+        .single();
+
       await supabaseAdmin
         .from('scheduled_content')
         .update({
-          media_url: videoResult.videoUrl,
+          suggested_media: videoResult.videoUrl, // Guardar URL del video aquí
           status: 'ready',
           metadata: {
+            ...currentContent?.metadata, // Preservar metadata existente
             video_generated: true,
+            video_url: videoResult.videoUrl, // También en metadata
             avatar_used: finalAvatarFilename,
             avatar_file_id: finalAvatarFileId,
             video_id: videoResult.videoId,
