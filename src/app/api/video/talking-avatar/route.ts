@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const {
       contentId,
       script,
-      voiceId = 'es-ES-ElviraNeural', // Voz española femenina de Microsoft
+      voiceId, // Voz específica (se usará default según el provider)
       language = 'es',
       quality = 'high',
       avatarFileId, // Avatar específico pre-seleccionado
@@ -131,7 +131,9 @@ export async function POST(request: Request) {
       // Primero generar audio con ElevenLabs para voz espanola
       if (elevenLabsKey) {
         console.log('   Generando audio con ElevenLabs...');
-        const audioResult = await generateAudio(script, voiceId, elevenLabsKey);
+        // Usar voiceId de ElevenLabs (NO confundir con Azure TTS)
+        const elevenLabsVoiceId = voiceId || 'XB0fDUnXU5powFXDhCwa'; // Charlotte - voz femenina español
+        const audioResult = await generateAudio(script, elevenLabsVoiceId, elevenLabsKey);
 
         if (audioResult.success) {
           videoResult = await createVideoWithHeyGenAudio(avatarBuffer, finalAvatarFilename, audioResult.audioUrl!, heygenKey);
@@ -148,7 +150,9 @@ export async function POST(request: Request) {
 
       if (elevenLabsKey) {
         console.log('   Usando voz ElevenLabs...');
-        const audioResult = await generateAudio(script, voiceId, elevenLabsKey);
+        // Usar voiceId de ElevenLabs (NO confundir con Azure TTS)
+        const elevenLabsVoiceId = voiceId || 'XB0fDUnXU5powFXDhCwa'; // Charlotte - voz femenina español
+        const audioResult = await generateAudio(script, elevenLabsVoiceId, elevenLabsKey);
 
         if (!audioResult.success) {
           console.log('   ElevenLabs fallo, usando TTS nativo de D-ID');
@@ -246,28 +250,37 @@ async function generateAudio(
   apiKey: string
 ): Promise<{ success: boolean; audioUrl?: string; error?: string }> {
   try {
-    // Limpiar texto para ~30 segundos de audio
-    const cleanText = text
+    // Limpiar y optimizar texto para máxima expresividad
+    let cleanText = text
       .replace(/\d+-\d+s?:\s*/gi, '')
       .replace(/["'"]/g, '')
       .replace(/\*\*/g, '')
       .replace(/#{1,}/g, '')
       .replace(/\(Hook\)|Hook:|Valor:|Ejemplo:|Llamada a accion:|Cierre:/gi, '')
       .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remover emojis
-      .replace(/\n+/g, ' ')
-      .trim()
-      .slice(0, 1500); // Texto para ~30 segundos
+      .replace(/\n+/g, '. ')  // Convertir saltos de línea en pausas
+      .trim();
 
-    // Voz española por defecto de ElevenLabs
-    // "Antoni" es una voz masculina que soporta español via eleven_multilingual_v2
-    // "Charlotte" es femenina y tambien soporta español
-    const spanishVoiceId = voiceId || 'XB0fDUnXU5powFXDhCwa'; // Charlotte - femenina, español
+    // Agregar pausas estratégicas para naturalidad (frases cortas)
+    // Dividir en oraciones y limitar longitud
+    const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const optimizedSentences = sentences.map(s => {
+      const trimmed = s.trim();
+      // Si la oración es muy larga, agregar pausas con comas
+      if (trimmed.split(' ').length > 15) {
+        return trimmed.replace(/(\s+(?:y|pero|porque|cuando|aunque)\s+)/gi, ', $1');
+      }
+      return trimmed;
+    });
 
-    console.log(`   Generando audio con ElevenLabs (voz: ${spanishVoiceId})...`);
-    console.log(`   Texto: ${cleanText.slice(0, 100)}...`);
+    cleanText = optimizedSentences.join('. ').slice(0, 1500); // Texto para ~30 segundos
+
+    // voiceId ya viene como parámetro (ID de ElevenLabs, ej: XB0fDUnXU5powFXDhCwa)
+    console.log(`   Generando audio con ElevenLabs (voz: ${voiceId})...`);
+    console.log(`   Texto optimizado: ${cleanText.slice(0, 100)}...`);
 
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${spanishVoiceId}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
       {
         method: 'POST',
         headers: {
@@ -279,9 +292,9 @@ async function generateAudio(
           text: cleanText,
           model_id: 'eleven_multilingual_v2', // Modelo multilenguaje para español
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.5,
+            stability: 0.55,  // Ajustado para tono natural y variado (0.5-0.6)
+            similarity_boost: 0.75,  // Mantener similitud con la voz (0.7-0.8)
+            style: 0.6,  // Mayor expresividad
             use_speaker_boost: true
           }
         })
@@ -364,17 +377,20 @@ async function createVideoWithHeyGenAudio(
     console.log('   Creando video con HeyGen + audio externo...');
     console.log(`   Audio URL: ${audioUrl}`);
 
-    // Obtener talking_photo_id de los avatars existentes en HeyGen
-    const talkingPhotoId = await getHeyGenTalkingPhotoId(apiKey);
+    // Subir imagen a HeyGen como talking photo (usando raw binary data)
+    const uploadResult = await uploadTalkingPhotoToHeyGen(imageBuffer, apiKey);
 
-    if (!talkingPhotoId) {
+    if (!uploadResult.success) {
       return {
         success: false,
-        error: 'No se encontró ningún Talking Photo en HeyGen. Por favor crea uno manualmente en HeyGen Dashboard.'
+        error: `Error subiendo talking photo a HeyGen: ${uploadResult.error}`
       };
     }
 
-    // Crear video con talking_photo_id + audio externo
+    const talkingPhotoId = uploadResult.talking_photo_id!;
+    console.log('   ✅ Talking Photo ID obtenido:', talkingPhotoId);
+
+    // Crear video usando talking_photo_id + audio externo con parámetros de naturalidad
     const response = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: {
@@ -385,7 +401,9 @@ async function createVideoWithHeyGenAudio(
         video_inputs: [{
           character: {
             type: 'talking_photo',
-            talking_photo_id: talkingPhotoId  // ID del avatar ya creado
+            talking_photo_id: talkingPhotoId,
+            scale: 1.0,
+            offset: { x: 0, y: 0 }
           },
           voice: {
             type: 'audio',
@@ -393,10 +411,12 @@ async function createVideoWithHeyGenAudio(
           }
         }],
         dimension: {
-          width: 1080,
-          height: 1920
+          width: 720,
+          height: 1280
         },
-        aspect_ratio: '9:16'
+        aspect_ratio: '9:16',
+        test: false,
+        caption: false
       })
     });
 
@@ -497,17 +517,29 @@ async function createVideoWithHeyGenText(
   language: string = 'es'
 ): Promise<{ success: boolean; videoUrl?: string; videoId?: string; status?: string; error?: string }> {
   try {
-    // Limpiar texto
-    const cleanText = text
+    // Limpiar y optimizar texto para máxima expresividad
+    let cleanText = text
       .replace(/\d+-\d+s?:\s*/gi, '')
       .replace(/["'"]/g, '')
       .replace(/\*\*/g, '')
       .replace(/#{1,}/g, '')
       .replace(/\(Hook\)|Hook:|Valor:|Ejemplo:|Llamada a accion:|Cierre:/gi, '')
       .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
-      .replace(/\n+/g, ' ')
-      .trim()
-      .slice(0, 1500);
+      .replace(/\n+/g, '. ')  // Convertir saltos de línea en pausas
+      .trim();
+
+    // Agregar pausas estratégicas para naturalidad (frases cortas)
+    const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const optimizedSentences = sentences.map(s => {
+      const trimmed = s.trim();
+      // Si la oración es muy larga, agregar pausas con comas
+      if (trimmed.split(' ').length > 15) {
+        return trimmed.replace(/(\s+(?:y|pero|porque|cuando|aunque)\s+)/gi, ', $1');
+      }
+      return trimmed;
+    });
+
+    cleanText = optimizedSentences.join('. ').slice(0, 1500);
 
     // Subir imagen a Supabase Storage
     const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
@@ -538,21 +570,23 @@ async function createVideoWithHeyGenText(
 
     console.log('   Creando video con HeyGen + TTS nativo...');
 
-    // Obtener talking_photo_id de los avatars existentes en HeyGen
-    const talkingPhotoId = await getHeyGenTalkingPhotoId(apiKey);
+    // Subir imagen a HeyGen como talking photo (usando raw binary data)
+    const uploadResult = await uploadTalkingPhotoToHeyGen(imageBuffer, apiKey);
 
-    if (!talkingPhotoId) {
+    if (!uploadResult.success) {
       return {
         success: false,
-        error: 'No se encontró ningún Talking Photo en HeyGen. Por favor crea uno manualmente en HeyGen Dashboard.'
+        error: `Error subiendo talking photo a HeyGen: ${uploadResult.error}`
       };
     }
 
-    // Voz española de HeyGen (Microsoft Azure voices)
-    // Opciones: es-ES-ElviraNeural, es-ES-AlvaroNeural, es-MX-DaliaNeural
-    const voiceId = language === 'es' ? 'es-ES-ElviraNeural' : 'en-US-JennyNeural';
+    const talkingPhotoId = uploadResult.talking_photo_id!;
+    console.log('   ✅ Talking Photo ID obtenido:', talkingPhotoId);
 
-    // Crear video con talking_photo_id
+    // Voz configurable desde .env.local (consultar voces disponibles en GET /v2/voices)
+    const heygenVoiceId = process.env.HEYGEN_VOICE_ID || 'fb8c5c3f02854c57a4da182d4ed59467';
+
+    // Crear video usando talking_photo_id con parámetros de naturalidad
     const response = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: {
@@ -563,19 +597,25 @@ async function createVideoWithHeyGenText(
         video_inputs: [{
           character: {
             type: 'talking_photo',
-            talking_photo_id: talkingPhotoId  // ID del avatar ya creado
+            talking_photo_id: talkingPhotoId,
+            scale: 1.0,
+            offset: { x: 0, y: 0 }
           },
           voice: {
             type: 'text',
             input_text: cleanText,
-            voice_id: voiceId
+            voice_id: heygenVoiceId,
+            speed: 0.95,  // Más lento para pausas naturales y gestos
+            emotion: 'Friendly'  // Expresividad facial natural
           }
         }],
         dimension: {
-          width: 1080,
-          height: 1920
+          width: 720,
+          height: 1280
         },
-        aspect_ratio: '9:16'
+        aspect_ratio: '9:16',
+        test: false,
+        caption: false
       })
     });
 
@@ -944,5 +984,133 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Lista todos los photo avatars (talking photos) existentes en HeyGen
+ */
+async function listPhotoAvatars(apiKey: string): Promise<any[]> {
+  try {
+    const response = await fetch('https://api.heygen.com/v2/avatars', {
+      method: 'GET',
+      headers: {
+        'X-Api-Key': apiKey  // HeyGen usa X-Api-Key con mayúsculas en algunos endpoints
+      }
+    });
+
+    if (!response.ok) {
+      console.error('   Error listando avatars:', await response.text());
+      return [];
+    }
+
+    const data = await response.json();
+    // La respuesta incluye data.talking_photos[] para photo avatars
+    return data.data?.talking_photos || [];
+  } catch (error: any) {
+    console.error('   Error listando avatars:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Elimina un photo avatar por ID
+ */
+async function deletePhotoAvatar(avatarId: string, apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.heygen.com/v2/photo_avatar/${avatarId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-api-key': apiKey
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`   Error eliminando avatar ${avatarId}:`, await response.text());
+      return false;
+    }
+
+    console.log(`   ✅ Avatar ${avatarId} eliminado`);
+    return true;
+  } catch (error: any) {
+    console.error(`   Error eliminando avatar ${avatarId}:`, error.message);
+    return false;
+  }
+}
+
+/**
+ * Sube una imagen a HeyGen como talking photo para obtener talking_photo_id
+ * API: https://upload.heygen.com/v1/talking_photo
+ * Usa raw binary data, NO multipart form data
+ * NOTA: Límite de 3 photo avatars en plan básico - elimina antiguos si es necesario
+ */
+async function uploadTalkingPhotoToHeyGen(
+  imageBuffer: Buffer,
+  apiKey: string
+): Promise<{ success: boolean; talking_photo_id?: string; error?: string }> {
+  try {
+    console.log('   Verificando límite de photo avatars...');
+
+    // Listar photo avatars existentes
+    const existingAvatars = await listPhotoAvatars(apiKey);
+    console.log(`   Photo avatars existentes: ${existingAvatars.length}`);
+
+    // Si ya hay 3 o más, eliminar el más antiguo
+    if (existingAvatars.length >= 3) {
+      console.log('   ⚠️ Límite alcanzado, eliminando avatar más antiguo...');
+      const oldestAvatar = existingAvatars[0]; // El primero es el más antiguo
+      const avatarId = oldestAvatar.photo_avatar_id || oldestAvatar.id || oldestAvatar.talking_photo_id;
+
+      if (avatarId) {
+        await deletePhotoAvatar(avatarId, apiKey);
+      }
+    }
+
+    console.log('   Subiendo talking photo a HeyGen...');
+    console.log('   Buffer length:', imageBuffer.length);
+
+    // CORRECCIÓN: Usar raw binary data con Content-Type: image/jpeg
+    // NO usar multipart/form-data
+    const response = await fetch('https://upload.heygen.com/v1/talking_photo', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,  // Note: lowercase 'x-api-key' as per curl examples
+        'Content-Type': 'image/jpeg'
+      },
+      body: imageBuffer
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('   ❌ Upload failed:', response.status, errorText);
+      return {
+        success: false,
+        error: `Upload failed: ${response.status} - ${errorText}`
+      };
+    }
+
+    const result = await response.json();
+    console.log('   HeyGen response:', JSON.stringify(result));
+
+    // Response includes talking_photo_id
+    if (result.data && result.data.talking_photo_id) {
+      console.log('   ✅ Talking Photo ID:', result.data.talking_photo_id);
+      return {
+        success: true,
+        talking_photo_id: result.data.talking_photo_id
+      };
+    } else {
+      console.error('   ❌ No talking_photo_id in response:', result);
+      return {
+        success: false,
+        error: result.message || result.error?.message || 'No talking_photo_id received'
+      };
+    }
+  } catch (error: any) {
+    console.error('   ❌ Exception:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
