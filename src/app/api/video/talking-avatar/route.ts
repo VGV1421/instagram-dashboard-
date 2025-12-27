@@ -364,7 +364,34 @@ async function createVideoWithHeyGenAudio(
     console.log('   Creando video con HeyGen + audio externo...');
     console.log(`   Audio URL: ${audioUrl}`);
 
-    // Crear video con HeyGen
+    // PASO 1: Subir foto a HeyGen para obtener talking_photo_id
+    console.log('   Subiendo foto a HeyGen...');
+    const uploadResponse = await fetch('https://api.heygen.com/v1/talking_photo', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image_url: imageUrl
+      })
+    });
+
+    if (!uploadResponse.ok) {
+      const uploadError = await uploadResponse.text();
+      return { success: false, error: `Error subiendo foto a HeyGen: ${uploadError}` };
+    }
+
+    const uploadData = await uploadResponse.json();
+    const talkingPhotoId = uploadData.data?.talking_photo_id;
+
+    if (!talkingPhotoId) {
+      return { success: false, error: 'No se recibió talking_photo_id de HeyGen' };
+    }
+
+    console.log(`   ✅ Foto subida, talking_photo_id: ${talkingPhotoId}`);
+
+    // PASO 2: Crear video con el talking_photo_id
     const response = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: {
@@ -375,7 +402,9 @@ async function createVideoWithHeyGenAudio(
         video_inputs: [{
           character: {
             type: 'talking_photo',
-            talking_photo_url: imageUrl
+            talking_photo: {
+              talking_photo_id: talkingPhotoId
+            }
           },
           voice: {
             type: 'audio',
@@ -489,6 +518,36 @@ async function createVideoWithHeyGenText(
 
     console.log('   Creando video con HeyGen + TTS nativo...');
 
+    // PASO 1: Subir foto a HeyGen para obtener talking_photo_id
+    console.log('   Subiendo foto a HeyGen...');
+    const uploadResponse = await fetch('https://api.heygen.com/v1/talking_photo', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image_url: imageUrl
+      })
+    });
+
+    if (!uploadResponse.ok) {
+      const uploadError = await uploadResponse.text();
+      console.error('HeyGen Upload Error:', uploadError);
+      return { success: false, error: `Error subiendo foto a HeyGen: ${uploadResponse.status} - ${uploadError}` };
+    }
+
+    const uploadData = await uploadResponse.json();
+    const talkingPhotoId = uploadData.data?.talking_photo_id;
+
+    if (!talkingPhotoId) {
+      console.error('No se recibió talking_photo_id');
+      return { success: false, error: 'No se recibió talking_photo_id de HeyGen' };
+    }
+
+    console.log(`   Talking Photo ID: ${talkingPhotoId}`);
+
+    // PASO 2: Crear video con el talking_photo_id
     // Voz espanola de HeyGen
     // Opciones: es-ES-ElviraNeural, es-ES-AlvaroNeural, es-MX-DaliaNeural
     const voiceId = language === 'es' ? 'es-ES-ElviraNeural' : 'en-US-JennyNeural';
@@ -503,7 +562,9 @@ async function createVideoWithHeyGenText(
         video_inputs: [{
           character: {
             type: 'talking_photo',
-            talking_photo_url: imageUrl
+            talking_photo: {
+              talking_photo_id: talkingPhotoId
+            }
           },
           voice: {
             type: 'text',
