@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/simple-client';
 import { notifyVideoReady, notifyError } from '@/lib/email/notifications';
-import fs from 'fs/promises';
-import path from 'path';
+import {
+  getRandomUnusedAvatar,
+  downloadDriveFile,
+  markAvatarAsUsed,
+  listDriveFiles
+} from '@/lib/google-drive';
 
 /**
  * POST /api/video/talking-avatar
  *
  * Genera un video de Reel AUTOMATICO con avatar hablando:
- * 1. Coge una foto de "FOTOS AVATAR SIN USAR"
+ * 1. Coge una foto de Google Drive "FOTOS AVATAR SIN USAR"
  * 2. Crea video con avatar hablando usando HeyGen (prioridad) o D-ID
- * 3. Mueve la foto a "FOTOS AVAR USADAS"
+ * 3. Mueve la foto a Google Drive "FOTOS AVAR USADAS"
  *
  * PRIORIDAD DE PROVIDERS (de mejor a peor calidad):
  * 1. HeyGen - Mejor calidad, mas natural, sin marca de agua (de pago)
@@ -21,10 +25,11 @@ import path from 'path';
  * - HEYGEN_API_KEY (recomendado - https://heygen.com)
  * - DID_API_KEY (fallback - https://d-id.com)
  * - ELEVENLABS_API_KEY (opcional - para voz espanola con D-ID)
+ * - GOOGLE_SERVICE_ACCOUNT_EMAIL
+ * - GOOGLE_PRIVATE_KEY
+ * - GOOGLE_DRIVE_FOLDER_UNUSED
+ * - GOOGLE_DRIVE_FOLDER_USED
  */
-
-const AVATAR_UNUSED_PATH = 'C:\\Users\\Usuario\\CURSOR\\instagram-dashboard\\FOTOS AVATAR SIN USAR';
-const AVATAR_USED_PATH = 'C:\\Users\\Usuario\\CURSOR\\instagram-dashboard\\FOTOS AVAR USADAS';
 
 interface TalkingAvatarRequest {
   contentId?: string;
@@ -76,27 +81,32 @@ export async function POST(request: Request) {
     console.log(`Provider seleccionado: ${provider.toUpperCase()}`);
     console.log(`ElevenLabs: ${elevenLabsKey ? 'SI' : 'NO'}`);
 
-    // PASO 1: AGENTE SELECTOR - Seleccionar foto más adecuada según el tema
-    console.log('🤖 Agente Selector analizando fotos disponibles...');
-    const avatarResult = await selectBestAvatar(script);
+    // PASO 1: AGENTE SELECTOR - Seleccionar foto de Google Drive
+    console.log('🤖 Agente Selector obteniendo foto de Google Drive...');
+    const avatarResult = await getRandomUnusedAvatar();
 
     if (!avatarResult.success) {
       return NextResponse.json({
         success: false,
-        error: 'No hay fotos de avatar disponibles',
-        path: AVATAR_UNUSED_PATH,
-        suggestion: 'Anade mas fotos a la carpeta "FOTOS AVATAR SIN USAR"'
+        error: 'No hay fotos de avatar disponibles en Google Drive',
+        suggestion: 'Sube mas fotos a la carpeta "FOTOS AVATAR SIN USAR" en Google Drive'
       }, { status: 400 });
     }
 
-    const avatarPath = avatarResult.path!;
+    const avatarFileId = avatarResult.fileId!;
     const avatarFilename = avatarResult.filename!;
     console.log(`✅ Avatar seleccionado: ${avatarFilename}`);
-    console.log(`📝 Razón: ${avatarResult.reason}`);
+    console.log(`📊 Disponibles en Drive: ${avatarResult.totalAvailable}`);
 
     // PASO 2: AGENTE GENERADOR - Crear video profesional
     console.log('🎬 Agente Generador iniciando producción de video...');
     console.log(`   Provider: ${provider.toUpperCase()}`);
+
+    // Descargar avatar de Google Drive
+    console.log('📥 Descargando avatar de Google Drive...');
+    const avatarBuffer = await downloadDriveFile(avatarFileId);
+    console.log(`✅ Avatar descargado: ${avatarBuffer.length} bytes`);
+
     let videoResult;
 
     if (provider === 'heygen' && heygenKey) {
@@ -109,13 +119,13 @@ export async function POST(request: Request) {
         const audioResult = await generateAudio(script, voiceId, elevenLabsKey);
 
         if (audioResult.success) {
-          videoResult = await createVideoWithHeyGenAudio(avatarPath, audioResult.audioUrl!, heygenKey);
+          videoResult = await createVideoWithHeyGenAudio(avatarBuffer, avatarFilename, audioResult.audioUrl!, heygenKey);
         } else {
           console.log('   ElevenLabs fallo, usando TTS de HeyGen');
-          videoResult = await createVideoWithHeyGenText(avatarPath, script, heygenKey, language);
+          videoResult = await createVideoWithHeyGenText(avatarBuffer, avatarFilename, script, heygenKey, language);
         }
       } else {
-        videoResult = await createVideoWithHeyGenText(avatarPath, script, heygenKey, language);
+        videoResult = await createVideoWithHeyGenText(avatarBuffer, avatarFilename, script, heygenKey, language);
       }
     } else if (didKey) {
       // D-ID - Fallback
@@ -127,13 +137,13 @@ export async function POST(request: Request) {
 
         if (!audioResult.success) {
           console.log('   ElevenLabs fallo, usando TTS nativo de D-ID');
-          videoResult = await createVideoWithDIDText(avatarPath, script, didKey, language);
+          videoResult = await createVideoWithDIDText(avatarBuffer, avatarFilename, script, didKey, language);
         } else {
-          videoResult = await createVideoWithDIDAudio(avatarPath, audioResult.audioUrl!, didKey);
+          videoResult = await createVideoWithDIDAudio(avatarBuffer, avatarFilename, audioResult.audioUrl!, didKey);
         }
       } else {
         console.log('   Usando TTS nativo de D-ID...');
-        videoResult = await createVideoWithDIDText(avatarPath, script, didKey, language);
+        videoResult = await createVideoWithDIDText(avatarBuffer, avatarFilename, script, didKey, language);
       }
     } else {
       return NextResponse.json({
@@ -150,9 +160,9 @@ export async function POST(request: Request) {
     }
     console.log('   Video creado!');
 
-    // PASO 3: Mover avatar a "usadas"
-    await moveAvatarToUsed(avatarFilename);
-    console.log('   Avatar movido a "usadas"');
+    // PASO 3: Mover avatar a carpeta "usadas" en Google Drive
+    await markAvatarAsUsed(avatarFileId);
+    console.log('   Avatar movido a "FOTOS AVAR USADAS" en Google Drive');
 
     // PASO 4: Guardar en BD
     if (contentId) {
@@ -204,170 +214,6 @@ export async function POST(request: Request) {
 }
 
 // ============ FUNCIONES AUXILIARES ============
-
-/**
- * AGENTE SELECTOR DE FOTO
- * Analiza todas las fotos disponibles con GPT-4 Vision y selecciona
- * la más adecuada según el tema y contenido del reel
- */
-async function selectBestAvatar(script: string): Promise<{
-  success: boolean;
-  path?: string;
-  filename?: string;
-  reason?: string;
-}> {
-  try {
-    const files = await fs.readdir(AVATAR_UNUSED_PATH);
-    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
-
-    if (imageFiles.length === 0) {
-      return { success: false };
-    }
-
-    console.log(`   Encontradas ${imageFiles.length} fotos para analizar`);
-
-    // Si solo hay 1 foto, usarla directamente
-    if (imageFiles.length === 1) {
-      const fullPath = path.join(AVATAR_UNUSED_PATH, imageFiles[0]);
-      return {
-        success: true,
-        path: fullPath,
-        filename: imageFiles[0],
-        reason: 'Única foto disponible'
-      };
-    }
-
-    // ANALIZAR FOTOS CON GPT-4 VISION
-    const OpenAI = (await import('openai')).default;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    // Preparar imágenes en base64 (máximo 5 para no saturar)
-    const photosToAnalyze = imageFiles.slice(0, 5);
-    const imageDescriptions = await Promise.all(
-      photosToAnalyze.map(async (filename, index) => {
-        const imagePath = path.join(AVATAR_UNUSED_PATH, filename);
-        const imageBuffer = await fs.readFile(imagePath);
-        const base64Image = imageBuffer.toString('base64');
-        const ext = filename.split('.').pop()?.toLowerCase();
-        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-
-        return {
-          filename,
-          index: index + 1,
-          data: `data:${mimeType};base64,${base64Image}`
-        };
-      })
-    );
-
-    // Llamar a GPT-4 Vision para seleccionar la mejor foto
-    console.log('   Consultando a GPT-4 Vision para selección inteligente...');
-
-    const prompt = `Eres un agente especialista en selección de avatares para videos de Instagram Reels.
-
-TEMA DEL REEL:
-${script.slice(0, 500)}
-
-FOTOS DISPONIBLES:
-${imageDescriptions.map(img => `Foto ${img.index}: ${img.filename}`).join('\n')}
-
-TAREA:
-Analiza cada foto y selecciona LA MEJOR para este reel considerando:
-1. Expresión facial apropiada para el tema
-2. Iluminación y calidad de imagen
-3. Fondo profesional y no distractor
-4. Conexión emocional con el mensaje
-5. Calidad general de la foto
-
-RESPONDE EN ESTE FORMATO JSON:
-{
-  "selected_index": <número de foto seleccionada (1-${imageDescriptions.length})>,
-  "reason": "<razón breve en español de por qué esta foto es la mejor>"
-}`;
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            ...imageDescriptions.map(img => ({
-              type: 'image_url' as const,
-              image_url: { url: img.data }
-            }))
-          ]
-        }
-      ],
-      max_tokens: 300,
-      temperature: 0.3
-    });
-
-    const response = completion.choices[0]?.message?.content || '{}';
-    const selection = JSON.parse(response.match(/\{[\s\S]*\}/)?.[0] || '{}');
-
-    const selectedIndex = selection.selected_index - 1;
-    const selectedFile = imageDescriptions[selectedIndex]?.filename || imageFiles[0];
-    const fullPath = path.join(AVATAR_UNUSED_PATH, selectedFile);
-
-    console.log(`   ✅ Selección: ${selectedFile}`);
-    console.log(`   📝 ${selection.reason}`);
-
-    return {
-      success: true,
-      path: fullPath,
-      filename: selectedFile,
-      reason: selection.reason || 'Seleccionada por IA'
-    };
-
-  } catch (error: any) {
-    console.error('Error en selección inteligente:', error.message);
-    // Fallback: seleccionar primera foto disponible
-    const files = await fs.readdir(AVATAR_UNUSED_PATH);
-    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
-
-    if (imageFiles.length === 0) {
-      return { success: false };
-    }
-
-    const fullPath = path.join(AVATAR_UNUSED_PATH, imageFiles[0]);
-    return {
-      success: true,
-      path: fullPath,
-      filename: imageFiles[0],
-      reason: 'Fallback: primera foto disponible'
-    };
-  }
-}
-
-async function getUnusedAvatar(): Promise<{ success: boolean; path?: string; filename?: string }> {
-  try {
-    const files = await fs.readdir(AVATAR_UNUSED_PATH);
-    const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
-
-    if (imageFiles.length === 0) {
-      return { success: false };
-    }
-
-    // Seleccionar aleatoriamente para variedad
-    const randomIndex = Math.floor(Math.random() * imageFiles.length);
-    const selectedFile = imageFiles[randomIndex];
-    const fullPath = path.join(AVATAR_UNUSED_PATH, selectedFile);
-
-    return { success: true, path: fullPath, filename: selectedFile };
-  } catch (error) {
-    return { success: false };
-  }
-}
-
-async function moveAvatarToUsed(filename: string): Promise<void> {
-  try {
-    const sourcePath = path.join(AVATAR_UNUSED_PATH, filename);
-    const destPath = path.join(AVATAR_USED_PATH, filename);
-    await fs.rename(sourcePath, destPath);
-  } catch (error) {
-    console.error('Error moving avatar:', error);
-  }
-}
 
 async function generateAudio(
   text: string,
@@ -457,20 +303,22 @@ async function generateAudio(
 
 // HeyGen con audio externo (ElevenLabs) - Mejor calidad
 async function createVideoWithHeyGenAudio(
-  imagePath: string,
+  imageBuffer: Buffer,
+  originalFilename: string,
   audioUrl: string,
   apiKey: string
 ): Promise<{ success: boolean; videoUrl?: string; videoId?: string; status?: string; error?: string }> {
   try {
     // Subir imagen a Supabase Storage para URL publica
-    const imageBuffer = await fs.readFile(imagePath);
-    const imageFilename = `avatar-heygen-${Date.now()}.${path.extname(imagePath).slice(1) || 'png'}`;
+    const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
+    const imageFilename = `avatar-heygen-${Date.now()}.${ext}`;
 
     console.log('   Subiendo avatar a Supabase Storage...');
+    const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from('avatars')
       .upload(imageFilename, imageBuffer, {
-        contentType: `image/${path.extname(imagePath).slice(1) === 'jpg' ? 'jpeg' : path.extname(imagePath).slice(1) || 'png'}`,
+        contentType,
         upsert: true
       });
 
@@ -568,7 +416,8 @@ async function createVideoWithHeyGenAudio(
 
 // HeyGen con TTS nativo - Sin necesidad de ElevenLabs
 async function createVideoWithHeyGenText(
-  imagePath: string,
+  imageBuffer: Buffer,
+  originalFilename: string,
   text: string,
   apiKey: string,
   language: string = 'es'
@@ -587,14 +436,15 @@ async function createVideoWithHeyGenText(
       .slice(0, 1500);
 
     // Subir imagen a Supabase Storage
-    const imageBuffer = await fs.readFile(imagePath);
-    const imageFilename = `avatar-heygen-${Date.now()}.${path.extname(imagePath).slice(1) || 'png'}`;
+    const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
+    const imageFilename = `avatar-heygen-${Date.now()}.${ext}`;
 
     console.log('   Subiendo avatar a Supabase Storage...');
-    const { error: uploadError } = await supabaseAdmin.storage
+    const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+    const { error: uploadError} = await supabaseAdmin.storage
       .from('avatars')
       .upload(imageFilename, imageBuffer, {
-        contentType: `image/${path.extname(imagePath).slice(1) === 'jpg' ? 'jpeg' : path.extname(imagePath).slice(1) || 'png'}`,
+        contentType,
         upsert: true
       });
 
@@ -700,7 +550,8 @@ async function createVideoWithHeyGenText(
 
 // D-ID con texto (TTS nativo) - No requiere ElevenLabs
 async function createVideoWithDIDText(
-  imagePath: string,
+  imageBuffer: Buffer,
+  originalFilename: string,
   text: string,
   apiKey: string,
   language: string = 'es'
@@ -722,14 +573,15 @@ async function createVideoWithDIDText(
     const authKey = Buffer.from(`${apiKey}:`).toString('base64');
 
     // Subir imagen a Supabase Storage para obtener URL pública
-    const imageBuffer = await fs.readFile(imagePath);
-    const imageFilename = `avatar-${Date.now()}.${path.extname(imagePath).slice(1) || 'png'}`;
+    const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
+    const imageFilename = `avatar-${Date.now()}.${ext}`;
 
     console.log(`   Subiendo avatar a Supabase Storage...`);
+    const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('avatars')
       .upload(imageFilename, imageBuffer, {
-        contentType: `image/${path.extname(imagePath).slice(1) === 'jpg' ? 'jpeg' : path.extname(imagePath).slice(1) || 'png'}`,
+        contentType,
         upsert: true
       });
 
@@ -806,20 +658,22 @@ async function createVideoWithDIDText(
 
 // D-ID con audio externo (ElevenLabs) - VOZ EN ESPAÑOL
 async function createVideoWithDIDAudio(
-  imagePath: string,
+  imageBuffer: Buffer,
+  originalFilename: string,
   audioUrl: string,
   apiKey: string
 ): Promise<{ success: boolean; videoUrl?: string; videoId?: string; status?: string; error?: string }> {
   try {
     // Subir imagen a Supabase Storage para obtener URL publica
-    const imageBuffer = await fs.readFile(imagePath);
-    const imageFilename = `avatar-${Date.now()}.${path.extname(imagePath).slice(1) || 'png'}`;
+    const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
+    const imageFilename = `avatar-${Date.now()}.${ext}`;
 
     console.log(`   Subiendo avatar a Supabase Storage...`);
+    const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('avatars')
       .upload(imageFilename, imageBuffer, {
-        contentType: `image/${path.extname(imagePath).slice(1) === 'jpg' ? 'jpeg' : path.extname(imagePath).slice(1) || 'png'}`,
+        contentType,
         upsert: true
       });
 
@@ -942,11 +796,11 @@ async function pollDIDVideo(
 // GET: Estado y avatares disponibles
 export async function GET() {
   try {
-    const unusedFiles = await fs.readdir(AVATAR_UNUSED_PATH).catch(() => []);
-    const usedFiles = await fs.readdir(AVATAR_USED_PATH).catch(() => []);
+    const folderUnused = process.env.GOOGLE_DRIVE_FOLDER_UNUSED;
+    const folderUsed = process.env.GOOGLE_DRIVE_FOLDER_USED;
 
-    const unusedImages = unusedFiles.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
-    const usedImages = usedFiles.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+    const unusedImages = folderUnused ? await listDriveFiles(folderUnused).catch(() => []) : [];
+    const usedImages = folderUsed ? await listDriveFiles(folderUsed).catch(() => []) : [];
 
     const heygenKey = process.env.HEYGEN_API_KEY;
     const didKey = process.env.DID_API_KEY;
@@ -959,7 +813,8 @@ export async function GET() {
       data: {
         avatarsDisponibles: unusedImages.length,
         avatarsUsados: usedImages.length,
-        listaDisponibles: unusedImages.slice(0, 10),
+        listaDisponibles: unusedImages.slice(0, 10).map(f => f.name),
+        source: 'Google Drive',
         apiConfigured: {
           heygen: !!heygenKey,
           did: !!didKey,
