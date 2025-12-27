@@ -11,8 +11,10 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate, HumanMessagePromptTemplate } from '@langchain/core/prompts';
 import { HumanMessage } from '@langchain/core/messages';
-import fs from 'fs/promises';
-import path from 'path';
+import {
+  listDriveFiles,
+  downloadDriveFile
+} from '@/lib/google-drive';
 import type {
   AvatarCandidate,
   FaceAnalysis,
@@ -21,10 +23,6 @@ import type {
   PhotoSelectionResult,
   AgentConfig
 } from './types';
-
-// ============ CONFIGURACIÓN ============
-
-const AVATAR_POOL_PATH = 'C:\\Users\\Usuario\\CURSOR\\instagram-dashboard\\FOTOS AVATAR SIN USAR';
 
 const DEFAULT_CONFIG: AgentConfig = {
   model: 'gpt-4o-mini',  // Optimizado: 15x más barato que gpt-4o
@@ -112,28 +110,33 @@ Analiza el siguiente script y extrae:
 
   /**
    * NODE 2: Analyze Avatar Pool
-   * Lee todas las fotos disponibles
+   * Lee todas las fotos disponibles desde Google Drive
    */
   private async getAvatarPool(): Promise<AvatarCandidate[]> {
-    console.log('📁 NODE 2: Cargando pool de avatares...');
+    console.log('📁 NODE 2: Cargando pool de avatares desde Google Drive...');
 
     try {
-      const files = await fs.readdir(AVATAR_POOL_PATH);
-      const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+      const folderUnused = process.env.GOOGLE_DRIVE_FOLDER_UNUSED;
+
+      if (!folderUnused) {
+        throw new Error('GOOGLE_DRIVE_FOLDER_UNUSED no configurado en .env');
+      }
+
+      const files = await listDriveFiles(folderUnused);
 
       // Limitar a 3 fotos para análisis económico (optimización de costos)
-      const selectedFiles = imageFiles.slice(0, 3);
+      const selectedFiles = files.slice(0, 3);
 
-      const avatars: AvatarCandidate[] = selectedFiles.map((filename, index) => ({
-        id: `avatar-${index}`,
-        filename,
-        path: path.join(AVATAR_POOL_PATH, filename)
+      const avatars: AvatarCandidate[] = selectedFiles.map((file, index) => ({
+        id: file.id!,
+        filename: file.name!,
+        path: file.id! // Usar fileId como "path" para compatibilidad
       }));
 
-      console.log(`✅ Pool cargado: ${avatars.length} avatares`);
+      console.log(`✅ Pool cargado: ${avatars.length} avatares desde Google Drive`);
       return avatars;
     } catch (error) {
-      console.error('Error reading avatar pool:', error);
+      console.error('Error reading avatar pool from Google Drive:', error);
       return [];
     }
   }
@@ -147,8 +150,8 @@ Analiza el siguiente script y extrae:
     scriptContext: { emotion: string; tone: string; keywords: string[] }
   ): Promise<{ avatar_id: string; analysis: string; match_score: number }> {
     try {
-      // Leer imagen y convertir a base64
-      const imageBuffer = await fs.readFile(avatar.path);
+      // Descargar imagen desde Google Drive y convertir a base64
+      const imageBuffer = await downloadDriveFile(avatar.path); // avatar.path contiene fileId
       const base64Image = imageBuffer.toString('base64');
       const ext = avatar.filename.split('.').pop()?.toLowerCase();
       const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';

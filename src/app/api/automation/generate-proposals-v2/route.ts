@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/simple-client';
 import { ContentCrew, PhotoSelector } from '@/lib/agents';
 import type { CompetitorPost } from '@/lib/agents/types';
 import { notifyFullReport } from '@/lib/email/notifications';
-import fs from 'fs/promises';
+import { downloadDriveFile } from '@/lib/google-drive';
 
 /**
  * POST /api/automation/generate-proposals-v2
@@ -198,12 +198,13 @@ export async function POST(request: Request) {
 
         if (proposal.photoPath) {
           try {
-            const imageBuffer = await fs.readFile(proposal.photoPath);
+            // photoPath contiene Google Drive file ID
+            const imageBuffer = await downloadDriveFile(proposal.photoPath);
             const base64 = imageBuffer.toString('base64');
             const ext = proposal.photo?.split('.').pop()?.toLowerCase();
             const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
             photoBase64 = `data:${mimeType};base64,${base64}`;
-            console.log(`   ✅ Foto convertida: ${proposal.photo}`);
+            console.log(`   ✅ Foto convertida desde Google Drive: ${proposal.photo}`);
           } catch (error: any) {
             console.error(`   ❌ Error convirtiendo foto ${proposal.photo}: ${error.message}`);
           }
