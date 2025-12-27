@@ -364,7 +364,17 @@ async function createVideoWithHeyGenAudio(
     console.log('   Creando video con HeyGen + audio externo...');
     console.log(`   Audio URL: ${audioUrl}`);
 
-    // Crear video con URL de imagen directamente (sin upload previo)
+    // Obtener talking_photo_id de los avatars existentes en HeyGen
+    const talkingPhotoId = await getHeyGenTalkingPhotoId(apiKey);
+
+    if (!talkingPhotoId) {
+      return {
+        success: false,
+        error: 'No se encontró ningún Talking Photo en HeyGen. Por favor crea uno manualmente en HeyGen Dashboard.'
+      };
+    }
+
+    // Crear video con talking_photo_id + audio externo
     const response = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: {
@@ -375,7 +385,7 @@ async function createVideoWithHeyGenAudio(
         video_inputs: [{
           character: {
             type: 'talking_photo',
-            talking_photo_url: imageUrl  // URL directa, sin upload previo
+            talking_photo_id: talkingPhotoId  // ID del avatar ya creado
           },
           voice: {
             type: 'audio',
@@ -439,6 +449,45 @@ async function createVideoWithHeyGenAudio(
   }
 }
 
+// Obtener talking_photo_id de HeyGen (avatar ya creado en la cuenta)
+async function getHeyGenTalkingPhotoId(apiKey: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://api.heygen.com/v2/avatars', {
+      method: 'GET',
+      headers: {
+        'X-Api-Key': apiKey
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Error listando avatars de HeyGen:', await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    const avatars = data.data?.avatars || [];
+
+    // Buscar el primer talking photo disponible
+    const talkingPhoto = avatars.find((avatar: any) =>
+      avatar.avatar_type === 'talking_photo' ||
+      avatar.type === 'talking_photo'
+    );
+
+    if (talkingPhoto) {
+      const photoId = talkingPhoto.talking_photo_id || talkingPhoto.avatar_id;
+      console.log(`   ✅ Talking Photo encontrado: ${talkingPhoto.avatar_name || photoId}`);
+      return photoId;
+    }
+
+    console.error('   ❌ No se encontraron Talking Photos en HeyGen');
+    console.error('   Por favor crea un Photo Avatar manualmente en HeyGen Dashboard');
+    return null;
+  } catch (error: any) {
+    console.error('Error obteniendo talking photos:', error.message);
+    return null;
+  }
+}
+
 // HeyGen con TTS nativo - Sin necesidad de ElevenLabs
 async function createVideoWithHeyGenText(
   imageBuffer: Buffer,
@@ -489,11 +538,21 @@ async function createVideoWithHeyGenText(
 
     console.log('   Creando video con HeyGen + TTS nativo...');
 
+    // Obtener talking_photo_id de los avatars existentes en HeyGen
+    const talkingPhotoId = await getHeyGenTalkingPhotoId(apiKey);
+
+    if (!talkingPhotoId) {
+      return {
+        success: false,
+        error: 'No se encontró ningún Talking Photo en HeyGen. Por favor crea uno manualmente en HeyGen Dashboard.'
+      };
+    }
+
     // Voz española de HeyGen (Microsoft Azure voices)
     // Opciones: es-ES-ElviraNeural, es-ES-AlvaroNeural, es-MX-DaliaNeural
     const voiceId = language === 'es' ? 'es-ES-ElviraNeural' : 'en-US-JennyNeural';
 
-    // Crear video con URL de imagen directamente (sin upload previo)
+    // Crear video con talking_photo_id
     const response = await fetch('https://api.heygen.com/v2/video/generate', {
       method: 'POST',
       headers: {
@@ -504,7 +563,7 @@ async function createVideoWithHeyGenText(
         video_inputs: [{
           character: {
             type: 'talking_photo',
-            talking_photo_url: imageUrl  // URL directa, sin upload previo
+            talking_photo_id: talkingPhotoId  // ID del avatar ya creado
           },
           voice: {
             type: 'text',
