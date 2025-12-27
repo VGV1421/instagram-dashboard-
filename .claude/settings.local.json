@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.heygen.com)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: HeyGen API - Usar URL directa sin upload previo\n\nPROBLEMA IDENTIFICADO:\n- Endpoint /v1/talking_photo devolvía 404 \\(ya no existe\\)\n- Intentábamos upload en 2 pasos pero HeyGen v2 acepta URL directa\n\nSOLUCIÓN:\n✅ createVideoWithHeyGenText\\(\\):\n  - Eliminado upload a /v1/talking_photo\n  - Usar talking_photo_url con imagen directa\n  - Mantener voice_id de Azure \\(es-ES-ElviraNeural\\) ✓\n\n✅ createVideoWithHeyGenAudio\\(\\):\n  - Mismo fix: URL directa sin upload\n  - Compatible con audio de ElevenLabs\n\nNOTAS:\n- ElevenLabs error es esperado \\(fallback a HeyGen TTS funciona\\)\n- HeyGen TTS usa voces de Microsoft Azure \\(es-ES-ElviraNeural\\)\n- ElevenLabs requeriría voice_id tipo hash \\(XB0fDUnXU5powFXDhCwa\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
