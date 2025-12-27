@@ -47,13 +47,22 @@ export async function POST(request: Request) {
     if (content.content_type === 'reel' && content.script) {
       console.log('Generando video para reel...');
 
+      // Obtener avatar ID del metadata si está disponible
+      const avatarFileId = content.metadata?.photo_drive_id || null;
+      const avatarFilename = content.metadata?.photo_assigned || null;
+
+      console.log('Avatar asignado:', avatarFilename);
+      console.log('Google Drive ID:', avatarFileId);
+
       const videoResponse = await fetch(`${baseUrl}/api/video/talking-avatar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contentId,
           script: content.script,
-          language: 'es'
+          language: 'es',
+          avatarFileId, // Pasar el ID específico del avatar
+          avatarFilename // Para tracking
         })
       });
 

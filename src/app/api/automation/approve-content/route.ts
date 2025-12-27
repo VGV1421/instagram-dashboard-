@@ -100,6 +100,8 @@ export async function POST(request: Request) {
           batch_id: batchId,
           proposal_id: selectedProposal.id,
           photo_assigned: selectedProposal.photo,
+          photo_drive_id: selectedProposal.photoPath, // Google Drive file ID
+          photo_score: selectedProposal.photoScore,
           approved_at: new Date().toISOString()
         }
       })

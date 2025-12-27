@@ -37,6 +37,8 @@ interface TalkingAvatarRequest {
   voiceId?: string; // ID de voz D-ID o ElevenLabs
   language?: string; // es, en, etc.
   quality?: 'high' | 'medium';
+  avatarFileId?: string; // Google Drive file ID específico (opcional)
+  avatarFilename?: string; // Nombre del archivo (para logging)
 }
 
 export async function POST(request: Request) {
@@ -47,7 +49,9 @@ export async function POST(request: Request) {
       script,
       voiceId = 'es-ES-ElviraNeural', // Voz española femenina de Microsoft
       language = 'es',
-      quality = 'high'
+      quality = 'high',
+      avatarFileId, // Avatar específico pre-seleccionado
+      avatarFilename
     } = body;
 
     // Verificar API keys - Prioridad: HeyGen > D-ID
@@ -81,22 +85,33 @@ export async function POST(request: Request) {
     console.log(`Provider seleccionado: ${provider.toUpperCase()}`);
     console.log(`ElevenLabs: ${elevenLabsKey ? 'SI' : 'NO'}`);
 
-    // PASO 1: AGENTE SELECTOR - Seleccionar foto de Google Drive
-    console.log('🤖 Agente Selector obteniendo foto de Google Drive...');
-    const avatarResult = await getRandomUnusedAvatar();
+    // PASO 1: AGENTE SELECTOR - Seleccionar o usar foto específica de Google Drive
+    let finalAvatarFileId: string;
+    let finalAvatarFilename: string;
 
-    if (!avatarResult.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'No hay fotos de avatar disponibles en Google Drive',
-        suggestion: 'Sube mas fotos a la carpeta "FOTOS AVATAR SIN USAR" en Google Drive'
-      }, { status: 400 });
+    if (avatarFileId) {
+      // Usar avatar pre-seleccionado inteligentemente
+      console.log('✅ Usando avatar pre-seleccionado:', avatarFilename || avatarFileId);
+      finalAvatarFileId = avatarFileId;
+      finalAvatarFilename = avatarFilename || 'avatar-pre-selected.png';
+    } else {
+      // Seleccionar avatar random
+      console.log('🤖 Agente Selector obteniendo foto random de Google Drive...');
+      const avatarResult = await getRandomUnusedAvatar();
+
+      if (!avatarResult.success) {
+        return NextResponse.json({
+          success: false,
+          error: 'No hay fotos de avatar disponibles en Google Drive',
+          suggestion: 'Sube mas fotos a la carpeta "FOTOS AVATAR SIN USAR" en Google Drive'
+        }, { status: 400 });
+      }
+
+      finalAvatarFileId = avatarResult.fileId!;
+      finalAvatarFilename = avatarResult.filename!;
+      console.log(`✅ Avatar seleccionado: ${finalAvatarFilename}`);
+      console.log(`📊 Disponibles en Drive: ${avatarResult.totalAvailable}`);
     }
-
-    const avatarFileId = avatarResult.fileId!;
-    const avatarFilename = avatarResult.filename!;
-    console.log(`✅ Avatar seleccionado: ${avatarFilename}`);
-    console.log(`📊 Disponibles en Drive: ${avatarResult.totalAvailable}`);
 
     // PASO 2: AGENTE GENERADOR - Crear video profesional
     console.log('🎬 Agente Generador iniciando producción de video...');
@@ -104,7 +119,7 @@ export async function POST(request: Request) {
 
     // Descargar avatar de Google Drive
     console.log('📥 Descargando avatar de Google Drive...');
-    const avatarBuffer = await downloadDriveFile(avatarFileId);
+    const avatarBuffer = await downloadDriveFile(finalAvatarFileId);
     console.log(`✅ Avatar descargado: ${avatarBuffer.length} bytes`);
 
     let videoResult;
@@ -119,13 +134,13 @@ export async function POST(request: Request) {
         const audioResult = await generateAudio(script, voiceId, elevenLabsKey);
 
         if (audioResult.success) {
-          videoResult = await createVideoWithHeyGenAudio(avatarBuffer, avatarFilename, audioResult.audioUrl!, heygenKey);
+          videoResult = await createVideoWithHeyGenAudio(avatarBuffer, finalAvatarFilename, audioResult.audioUrl!, heygenKey);
         } else {
           console.log('   ElevenLabs fallo, usando TTS de HeyGen');
-          videoResult = await createVideoWithHeyGenText(avatarBuffer, avatarFilename, script, heygenKey, language);
+          videoResult = await createVideoWithHeyGenText(avatarBuffer, finalAvatarFilename, script, heygenKey, language);
         }
       } else {
-        videoResult = await createVideoWithHeyGenText(avatarBuffer, avatarFilename, script, heygenKey, language);
+        videoResult = await createVideoWithHeyGenText(avatarBuffer, finalAvatarFilename, script, heygenKey, language);
       }
     } else if (didKey) {
       // D-ID - Fallback
@@ -137,13 +152,13 @@ export async function POST(request: Request) {
 
         if (!audioResult.success) {
           console.log('   ElevenLabs fallo, usando TTS nativo de D-ID');
-          videoResult = await createVideoWithDIDText(avatarBuffer, avatarFilename, script, didKey, language);
+          videoResult = await createVideoWithDIDText(avatarBuffer, finalAvatarFilename, script, didKey, language);
         } else {
-          videoResult = await createVideoWithDIDAudio(avatarBuffer, avatarFilename, audioResult.audioUrl!, didKey);
+          videoResult = await createVideoWithDIDAudio(avatarBuffer, finalAvatarFilename, audioResult.audioUrl!, didKey);
         }
       } else {
         console.log('   Usando TTS nativo de D-ID...');
-        videoResult = await createVideoWithDIDText(avatarBuffer, avatarFilename, script, didKey, language);
+        videoResult = await createVideoWithDIDText(avatarBuffer, finalAvatarFilename, script, didKey, language);
       }
     } else {
       return NextResponse.json({
@@ -161,8 +176,8 @@ export async function POST(request: Request) {
     console.log('   Video creado!');
 
     // PASO 3: Mover avatar a carpeta "usadas" en Google Drive
-    await markAvatarAsUsed(avatarFileId);
-    console.log('   Avatar movido a "FOTOS AVAR USADAS" en Google Drive');
+    await markAvatarAsUsed(finalAvatarFileId);
+    console.log(`   Avatar "${finalAvatarFilename}" movido a "FOTOS AVAR USADAS" en Google Drive`);
 
     // PASO 4: Guardar en BD
     if (contentId) {
@@ -173,7 +188,8 @@ export async function POST(request: Request) {
           status: 'ready',
           metadata: {
             video_generated: true,
-            avatar_used: avatarFilename,
+            avatar_used: finalAvatarFilename,
+            avatar_file_id: finalAvatarFileId,
             video_id: videoResult.videoId,
             provider: provider,
             generated_at: new Date().toISOString()
