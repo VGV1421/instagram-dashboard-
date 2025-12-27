@@ -31,19 +31,31 @@ export async function POST(request: Request) {
     // PASO 1: Buscar las propuestas
     let proposals: any[] = [];
 
-    // Buscar en automation_logs
-    const { data: logEntry } = await supabase
+    // Buscar en automation_logs (intentar V2 primero, luego V1)
+    let logEntry = await supabase
       .from('automation_logs')
       .select('*')
       .eq('execution_id', batchId)
-      .eq('workflow_name', 'content-proposals')
+      .eq('workflow_name', 'content-proposals-v2')
       .single();
 
+    // Si no existe en V2, buscar en V1
+    if (!logEntry.data) {
+      logEntry = await supabase
+        .from('automation_logs')
+        .select('*')
+        .eq('execution_id', batchId)
+        .eq('workflow_name', 'content-proposals')
+        .single();
+    }
+
+    const logData = logEntry.data;
+
     // Buscar propuestas en metadata (compatible con schema actual) o execution_data
-    if (logEntry?.metadata?.proposals) {
-      proposals = logEntry.metadata.proposals;
-    } else if (logEntry?.execution_data?.proposals) {
-      proposals = logEntry.execution_data.proposals;
+    if (logData?.metadata?.proposals) {
+      proposals = logData.metadata.proposals;
+    } else if (logData?.execution_data?.proposals) {
+      proposals = logData.execution_data.proposals;
     }
 
     if (proposals.length === 0) {
