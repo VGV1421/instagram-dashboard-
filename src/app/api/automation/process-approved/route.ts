@@ -76,7 +76,7 @@ export async function POST(request: Request) {
           .from('scheduled_content')
           .update({
             status: 'ready',
-            media_url: mediaUrl
+            suggested_media: mediaUrl // Usar columna correcta
           })
           .eq('id', contentId);
 
