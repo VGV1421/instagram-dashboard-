@@ -336,8 +336,6 @@ async function postProcessWithShotstack(
       },
       output: {
         format: 'mp4',
-        resolution: 'hd',
-        aspectRatio: '9:16', // Vertical para Instagram/TikTok
         size: {
           width: 1080,
           height: 1920
