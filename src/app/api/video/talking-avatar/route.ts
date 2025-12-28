@@ -164,7 +164,34 @@ export async function POST(request: Request) {
         error: `Error creando video: ${videoResult.error}`
       }, { status: 500 });
     }
-    console.log('   Video creado!');
+    console.log('   ✅ Video base creado!');
+
+    // PASO 2.5: Post-procesado con Shotstack (si está configurado)
+    const shotstackKey = process.env.SHOTSTACK_API_KEY;
+    let finalVideoUrl = videoResult.videoUrl;
+
+    if (shotstackKey && videoResult.videoUrl) {
+      console.log('   🎬 Aplicando post-procesado con Shotstack...');
+
+      const postProcessResult = await postProcessWithShotstack(
+        videoResult.videoUrl,
+        script,
+        shotstackKey
+      );
+
+      if (postProcessResult.success && postProcessResult.videoUrl) {
+        finalVideoUrl = postProcessResult.videoUrl;
+        console.log('   ✅ Post-procesado completado! Video con zooms y subtítulos.');
+      } else {
+        console.log(`   ⚠️ Post-procesado falló: ${postProcessResult.error}`);
+        console.log('   📹 Usando video original de HeyGen sin post-procesado.');
+      }
+    } else if (!shotstackKey) {
+      console.log('   ℹ️ Shotstack no configurado - video sin post-procesado.');
+      console.log('   💡 Agrega SHOTSTACK_API_KEY a .env.local para zooms y subtítulos.');
+    }
+
+    console.log('   ✅ Procesamiento de video completo!');
 
     // PASO 3: Mover avatar a carpeta "usadas" en Google Drive
     await markAvatarAsUsed(finalAvatarFileId);
@@ -226,6 +253,171 @@ export async function POST(request: Request) {
       success: false,
       error: error.message
     }, { status: 500 });
+  }
+}
+
+// ============ SHOTSTACK POST-PROCESSING ============
+
+/**
+ * Post-procesa video con Shotstack para agregar:
+ * - Zoom effects dinámicos (in/out)
+ * - Subtítulos animados
+ * - Transiciones suaves
+ * - Múltiples "cortes virtuales" con zoom
+ */
+async function postProcessWithShotstack(
+  videoUrl: string,
+  text: string,
+  apiKey: string
+): Promise<{ success: boolean; videoUrl?: string; error?: string }> {
+  try {
+    console.log('   🎬 Iniciando post-procesado con Shotstack...');
+
+    // Calcular duración estimada del video (basado en texto)
+    const wordCount = text.split(/\s+/).length;
+    const estimatedDuration = (wordCount / 2.5); // ~2.5 palabras por segundo
+    const clipDuration = Math.max(5, estimatedDuration / 4); // Dividir en 4 segmentos mínimo
+
+    // Crear segmentos con zoom alternado
+    const segments = [];
+    const zoomEffects = ['zoomIn', 'zoomOut', 'zoomInSlow', 'zoomOutSlow'];
+
+    for (let i = 0; i < 4; i++) {
+      segments.push({
+        asset: {
+          type: 'video',
+          src: videoUrl
+        },
+        start: i * clipDuration,
+        length: clipDuration,
+        effect: zoomEffects[i % zoomEffects.length],
+        transition: i > 0 ? {
+          in: 'fade',
+          out: 'fade'
+        } : undefined
+      });
+    }
+
+    // Crear subtítulos palabra por palabra (estilo TikTok)
+    const words = text.split(/\s+/);
+    const captionClips = words.map((word, index) => ({
+      asset: {
+        type: 'html',
+        html: `<p style="font-family: Arial Black, sans-serif; font-size: 80px; font-weight: 900; color: #FFFFFF; text-align: center; text-shadow: 4px 4px 8px rgba(0,0,0,0.8); -webkit-text-stroke: 2px black; padding: 20px; background: linear-gradient(135deg, rgba(255,0,150,0.3), rgba(0,204,255,0.3)); backdrop-filter: blur(10px); border-radius: 20px;">${word.toUpperCase()}</p>`,
+        css: 'body { margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; }',
+        width: 1080,
+        height: 1920,
+        background: 'transparent'
+      },
+      start: (index / 2.5), // ~2.5 palabras por segundo
+      length: 0.4, // Cada palabra visible 0.4 segundos
+      position: 'center',
+      offset: {
+        y: 0.3 // Posición inferior
+      },
+      transition: {
+        in: 'slideUp',
+        out: 'slideDown'
+      }
+    }));
+
+    // Timeline de Shotstack
+    const shotstackPayload = {
+      timeline: {
+        background: '#000000',
+        tracks: [
+          {
+            clips: segments // Video con zooms
+          },
+          {
+            clips: captionClips // Subtítulos animados
+          }
+        ]
+      },
+      output: {
+        format: 'mp4',
+        resolution: 'hd',
+        aspectRatio: '9:16', // Vertical para Instagram/TikTok
+        size: {
+          width: 1080,
+          height: 1920
+        }
+      }
+    };
+
+    console.log('   📤 Enviando video a Shotstack para renderizado...');
+
+    // Render con Shotstack
+    const renderResponse = await fetch('https://api.shotstack.io/edit/v1/render', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(shotstackPayload)
+    });
+
+    if (!renderResponse.ok) {
+      const error = await renderResponse.text();
+      console.error('   ❌ Shotstack render error:', error);
+      return { success: false, error: `Shotstack render failed: ${error}` };
+    }
+
+    const renderData = await renderResponse.json();
+    const renderId = renderData.response?.id;
+
+    if (!renderId) {
+      return { success: false, error: 'No render ID received from Shotstack' };
+    }
+
+    console.log(`   ⏳ Render ID: ${renderId} - Esperando procesamiento...`);
+
+    // Polling para obtener el video procesado
+    let finalVideoUrl = '';
+    let status = 'queued';
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutos máximo
+
+    while (status !== 'done' && status !== 'failed' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 5 segundos
+
+      const statusResponse = await fetch(`https://api.shotstack.io/edit/v1/render/${renderId}`, {
+        headers: {
+          'x-api-key': apiKey
+        }
+      });
+
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        status = statusData.response?.status || 'queued';
+
+        console.log(`   Status: ${status} (intento ${attempts + 1})`);
+
+        if (status === 'done') {
+          finalVideoUrl = statusData.response?.url;
+          break;
+        } else if (status === 'failed') {
+          return { success: false, error: 'Shotstack processing failed' };
+        }
+      }
+
+      attempts++;
+    }
+
+    if (!finalVideoUrl) {
+      return { success: false, error: 'Shotstack processing timeout' };
+    }
+
+    console.log(`   ✅ Video procesado exitosamente: ${finalVideoUrl}`);
+
+    return {
+      success: true,
+      videoUrl: finalVideoUrl
+    };
+
+  } catch (error: any) {
+    console.error('   ❌ Error en post-procesado Shotstack:', error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -530,7 +722,7 @@ async function createVideoWithAvatarIV(
     console.log('   Generando con Avatar IV (movimiento natural avanzado)...');
 
     // Subir imagen como asset para Avatar IV
-    const uploadResult = await uploadAssetForAvatarIV(imageBuffer, apiKey);
+    const uploadResult = await uploadAssetForAvatarIV(imageBuffer, apiKey, originalFilename);
 
     if (!uploadResult.success) {
       console.log('   ⚠️ Avatar IV upload falló, usando talking photo estándar...');
@@ -1162,18 +1354,24 @@ async function deletePhotoAvatar(avatarId: string, apiKey: string): Promise<bool
  */
 async function uploadAssetForAvatarIV(
   imageBuffer: Buffer,
-  apiKey: string
+  apiKey: string,
+  originalFilename: string
 ): Promise<{ success: boolean; image_key?: string; error?: string }> {
   try {
     console.log('   Subiendo asset para Avatar IV...');
     console.log('   Buffer length:', imageBuffer.length);
 
-    // Probar con raw binary (mismo formato que talking_photo)
+    // Detectar Content-Type basado en la extensión del archivo
+    const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
+    const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+    console.log(`   Content-Type detectado: ${contentType}`);
+
+    // Usar raw binary con el Content-Type correcto
     const response = await fetch('https://upload.heygen.com/v1/asset', {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
-        'Content-Type': 'image/jpeg'
+        'Content-Type': contentType
       },
       body: imageBuffer
     });
