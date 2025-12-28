@@ -116,11 +116,11 @@ async function postProcessWithShotstack(
 
     const transitions = [
       'fade',
-      'fadeIn',
-      'fadeOut',
-      'crossDissolve',
+      'fadeSlow',
+      'reveal',
       'wipeLeft',
-      'wipeRight'
+      'wipeRight',
+      'zoom'
     ];
 
     // Track 1: Video principal con zooms y efectos
@@ -247,11 +247,10 @@ async function postProcessWithShotstack(
     const shotstackPayload = {
       timeline: {
         background: '#000000',
-        soundtrack: {
-          // Podríamos agregar música de fondo aquí si queremos
-          // src: 'https://path-to-background-music.mp4',
-          // volume: 0.1
-        },
+        // soundtrack: {
+        //   src: 'https://path-to-background-music.mp3',
+        //   volume: 0.1
+        // },
         tracks: [
           {
             clips: videoSegments // Video principal con efectos
