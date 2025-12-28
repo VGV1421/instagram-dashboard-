@@ -443,12 +443,8 @@ async function postProcessWithShotstack(
       },
       output: {
         format: 'mp4',
-        size: {
-          width: 1080,
-          height: 1920
-        },
+        resolution: '1080', // Full HD vertical
         fps: 30,
-        scaleTo: 'crop', // Mantener aspect ratio
         quality: 'high'
       }
     };
@@ -698,8 +694,8 @@ async function createVideoWithHeyGenAudio(
           }
         }],
         dimension: {
-          width: 720,
-          height: 1280
+          width: 1080,
+          height: 1920
         },
         aspect_ratio: '9:16',
         test: false,
@@ -1027,8 +1023,8 @@ async function createVideoWithHeyGenText(
           }
         }],
         dimension: {
-          width: 720,
-          height: 1280
+          width: 1080,
+          height: 1920
         },
         aspect_ratio: '9:16',
         test: false,

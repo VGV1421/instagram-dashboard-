@@ -264,12 +264,8 @@ async function postProcessWithShotstack(
       },
       output: {
         format: 'mp4',
-        size: {
-          width: 1080,
-          height: 1920
-        },
+        resolution: '1080', // Full HD vertical
         fps: 30,
-        scaleTo: 'crop', // Mantener aspect ratio
         quality: 'high'
       }
     };
