@@ -136,8 +136,7 @@ async function postProcessWithShotstack(
         length: segmentDuration,
         effect: effects[i % effects.length],
         transition: i > 0 ? {
-          in: transitions[i % transitions.length],
-          duration: 0.5
+          in: transitions[i % transitions.length]
         } : undefined,
         opacity: 1
       });
