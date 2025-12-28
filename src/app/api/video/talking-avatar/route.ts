@@ -126,24 +126,11 @@ export async function POST(request: Request) {
 
     if (provider === 'heygen' && heygenKey) {
       // HeyGen - Mejor calidad, mas profesional
-      console.log('   Generando con HeyGen (calidad premium)...');
+      console.log('   Generando con HeyGen Avatar IV (máxima calidad y movimiento natural)...');
 
-      // Primero generar audio con ElevenLabs para voz espanola
-      if (elevenLabsKey) {
-        console.log('   Generando audio con ElevenLabs...');
-        // Usar voiceId de ElevenLabs (NO confundir con Azure TTS)
-        const elevenLabsVoiceId = voiceId || 'XB0fDUnXU5powFXDhCwa'; // Charlotte - voz femenina español
-        const audioResult = await generateAudio(script, elevenLabsVoiceId, elevenLabsKey);
-
-        if (audioResult.success) {
-          videoResult = await createVideoWithHeyGenAudio(avatarBuffer, finalAvatarFilename, audioResult.audioUrl!, heygenKey);
-        } else {
-          console.log('   ElevenLabs fallo, usando TTS de HeyGen');
-          videoResult = await createVideoWithHeyGenText(avatarBuffer, finalAvatarFilename, script, heygenKey, language);
-        }
-      } else {
-        videoResult = await createVideoWithHeyGenText(avatarBuffer, finalAvatarFilename, script, heygenKey, language);
-      }
+      // Prioridad: Avatar IV para mejor movimiento y gestos
+      // Si falla, hace fallback automático a talking photo estándar
+      videoResult = await createVideoWithAvatarIV(avatarBuffer, finalAvatarFilename, script, heygenKey, language);
     } else if (didKey) {
       // D-ID - Fallback
       console.log('Creando video con D-ID...');
@@ -505,6 +492,136 @@ async function getHeyGenTalkingPhotoId(apiKey: string): Promise<string | null> {
   } catch (error: any) {
     console.error('Error obteniendo talking photos:', error.message);
     return null;
+  }
+}
+
+// HeyGen Avatar IV con movimiento natural avanzado - RECOMENDADO
+async function createVideoWithAvatarIV(
+  imageBuffer: Buffer,
+  originalFilename: string,
+  text: string,
+  apiKey: string,
+  language: string = 'es'
+): Promise<{ success: boolean; videoUrl?: string; videoId?: string; status?: string; error?: string }> {
+  try {
+    // Limpiar y optimizar texto para máxima expresividad
+    let cleanText = text
+      .replace(/\d+-\d+s?:\s*/gi, '')
+      .replace(/["'"]/g, '')
+      .replace(/\*\*/g, '')
+      .replace(/#{1,}/g, '')
+      .replace(/\(Hook\)|Hook:|Valor:|Ejemplo:|Llamada a accion:|Cierre:/gi, '')
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+      .replace(/\n+/g, '. ')
+      .trim();
+
+    // Agregar pausas estratégicas
+    const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const optimizedSentences = sentences.map(s => {
+      const trimmed = s.trim();
+      if (trimmed.split(' ').length > 15) {
+        return trimmed.replace(/(\s+(?:y|pero|porque|cuando|aunque)\s+)/gi, ', $1');
+      }
+      return trimmed;
+    });
+
+    cleanText = optimizedSentences.join('. ').slice(0, 1500);
+
+    console.log('   Generando con Avatar IV (movimiento natural avanzado)...');
+
+    // Subir imagen como asset para Avatar IV
+    const uploadResult = await uploadAssetForAvatarIV(imageBuffer, apiKey);
+
+    if (!uploadResult.success) {
+      console.log('   ⚠️ Avatar IV upload falló, usando talking photo estándar...');
+      // Fallback a talking photo estándar
+      return await createVideoWithHeyGenText(imageBuffer, originalFilename, text, apiKey, language);
+    }
+
+    const imageKey = uploadResult.image_key!;
+    console.log('   ✅ Image Key obtenido para Avatar IV:', imageKey);
+
+    // Voice ID de HeyGen
+    const heygenVoiceId = process.env.HEYGEN_VOICE_ID || '3a991e0f1c824228bba932cdf8b0768e';
+
+    // Motion prompt para movimiento natural y gestos
+    const motionPrompt = 'Professional speaker with natural hand gestures while talking, gentle head movements and nods for emphasis, expressive facial expressions including smiles and raised eyebrows, subtle body sway, occasional blinks, warm and engaging presence, soft natural lighting';
+
+    console.log('   Creando video Avatar IV con motion prompt...');
+
+    // Crear video con Avatar IV
+    const response = await fetch('https://api.heygen.com/v2/video/av4/generate', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        image_key: imageKey,
+        video_title: `Avatar Video ${Date.now()}`,
+        script: cleanText,
+        voice_id: heygenVoiceId,
+        custom_motion_prompt: motionPrompt,
+        enhance_custom_motion_prompt: true,
+        aspect_ratio: '9:16'
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Avatar IV Error:', error);
+      console.log('   ⚠️ Avatar IV falló, usando talking photo estándar...');
+      // Fallback a talking photo
+      return await createVideoWithHeyGenText(imageBuffer, originalFilename, text, apiKey, language);
+    }
+
+    const data = await response.json();
+    const videoId = data.data?.video_id;
+
+    if (!videoId) {
+      return { success: false, error: 'No se recibió video_id de Avatar IV' };
+    }
+
+    console.log(`   Video ID Avatar IV: ${videoId}`);
+
+    // Polling para obtener el video
+    let videoUrl = '';
+    let status = 'processing';
+    let attempts = 0;
+
+    while (status === 'processing' && attempts < 60) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 5 segundos entre intentos
+
+      const statusRes = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
+        headers: { 'X-Api-Key': apiKey }
+      });
+
+      const statusData = await statusRes.json();
+      status = statusData.data?.status || 'processing';
+
+      console.log(`   Status: ${status} (intento ${attempts + 1})`);
+
+      if (status === 'completed') {
+        videoUrl = statusData.data?.video_url;
+        break;
+      } else if (status === 'failed') {
+        return { success: false, error: 'Avatar IV falló al procesar el video' };
+      }
+
+      attempts++;
+    }
+
+    return {
+      success: true,
+      videoUrl: videoUrl || undefined,
+      videoId,
+      status: videoUrl ? 'completed' : 'processing'
+    };
+
+  } catch (error: any) {
+    console.error('   Error en Avatar IV:', error.message);
+    // Fallback a talking photo
+    return await createVideoWithHeyGenText(imageBuffer, originalFilename, text, apiKey, language);
   }
 }
 
@@ -1035,6 +1152,66 @@ async function deletePhotoAvatar(avatarId: string, apiKey: string): Promise<bool
   } catch (error: any) {
     console.error(`   Error eliminando avatar ${avatarId}:`, error.message);
     return false;
+  }
+}
+
+/**
+ * Sube una imagen a HeyGen como asset para Avatar IV
+ * API: https://upload.heygen.com/v1/asset
+ * Retorna image_key necesario para Avatar IV
+ */
+async function uploadAssetForAvatarIV(
+  imageBuffer: Buffer,
+  apiKey: string
+): Promise<{ success: boolean; image_key?: string; error?: string }> {
+  try {
+    console.log('   Subiendo asset para Avatar IV...');
+    console.log('   Buffer length:', imageBuffer.length);
+
+    // Probar con raw binary (mismo formato que talking_photo)
+    const response = await fetch('https://upload.heygen.com/v1/asset', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'image/jpeg'
+      },
+      body: imageBuffer
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('   ❌ Upload failed:', response.status, errorText);
+      return {
+        success: false,
+        error: `Upload failed: ${response.status} - ${errorText}`
+      };
+    }
+
+    const result = await response.json();
+    console.log('   Asset response:', JSON.stringify(result));
+
+    // Response incluye image_key o asset_id
+    const imageKey = result.data?.image_key || result.data?.asset_id;
+
+    if (imageKey) {
+      console.log('   ✅ Image Key:', imageKey);
+      return {
+        success: true,
+        image_key: imageKey
+      };
+    } else {
+      console.error('   ❌ No image_key in response:', result);
+      return {
+        success: false,
+        error: result.message || result.error?.message || 'No image_key received'
+      };
+    }
+  } catch (error: any) {
+    console.error('   ❌ Exception:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
