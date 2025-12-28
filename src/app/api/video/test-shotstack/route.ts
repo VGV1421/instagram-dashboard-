@@ -123,53 +123,20 @@ async function postProcessWithShotstack(
       'zoom'
     ];
 
-    // Track 1: Video principal con zooms y efectos
-    const videoSegments = [];
-    for (let i = 0; i < numSegments; i++) {
-      videoSegments.push({
-        asset: {
-          type: 'video',
-          src: videoUrl,
-          trim: i * segmentDuration // Trim desde el punto correcto del video
-        },
-        start: i * segmentDuration,
-        length: segmentDuration,
-        effect: effects[i % effects.length],
-        transition: i > 0 ? {
-          in: transitions[i % transitions.length]
-        } : undefined,
-        opacity: 1
-      });
-    }
+    // Track 1: Video principal (SIN trim, usamos el video completo)
+    const videoClips = [{
+      asset: {
+        type: 'video',
+        src: videoUrl
+      },
+      start: 0,
+      length: duration,
+      fit: 'cover',
+      scale: 1.0
+    }];
 
-    // Track 2: B-roll con imágenes abstractas/gradientes
-    const brollClips = [];
-    const gradients = [
-      'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15))',
-      'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(239,68,68,0.15))',
-      'linear-gradient(135deg, rgba(34,211,238,0.15), rgba(59,130,246,0.15))',
-      'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(249,115,22,0.15))'
-    ];
-
-    for (let i = 0; i < numSegments; i++) {
-      const gradient = gradients[i % gradients.length];
-      brollClips.push({
-        asset: {
-          type: 'html',
-          html: `<div style="width: 100%; height: 100%; background: ${gradient};"></div>`,
-          width: 1080,
-          height: 1920,
-          background: 'transparent'
-        },
-        start: i * segmentDuration,
-        length: segmentDuration,
-        opacity: 0.3, // Overlay sutil
-        transition: {
-          in: 'fade',
-          out: 'fade'
-        }
-      });
-    }
+    // Track 2: ELIMINAR B-roll por ahora (simplificar)
+    // const brollClips = [];
 
     // Track 3: Subtítulos palabra por palabra mejorados
     const words = text.split(/\s+/).filter(w => w.trim().length > 0);
@@ -252,10 +219,7 @@ async function postProcessWithShotstack(
         // },
         tracks: [
           {
-            clips: videoSegments // Video principal con efectos
-          },
-          {
-            clips: brollClips // B-roll con gradientes
+            clips: videoClips // Video principal
           },
           {
             clips: captionClips // Subtítulos mejorados
