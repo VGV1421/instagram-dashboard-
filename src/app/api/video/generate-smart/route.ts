@@ -67,14 +67,14 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const kieApiKey = process.env.KIE_AI_API_KEY;
+    const kieApiKey = process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
     const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
 
     if (!kieApiKey) {
       return NextResponse.json({
         success: false,
-        error: 'KIE_AI_API_KEY no configurado en Vercel',
+        error: 'KIE_AI_API_KEY o KIE_API_KEY no configurado',
         instructions: {
           paso1: 'Crea cuenta en https://kie.ai',
           paso2: 'Ve a Settings > API Keys',
@@ -445,7 +445,7 @@ async function generateAudioWithElevenLabs(
  * GET: Info del sistema
  */
 export async function GET() {
-  const kieKey = !!process.env.KIE_AI_API_KEY;
+  const kieKey = !!(process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY);
   const openaiKey = !!process.env.OPENAI_API_KEY;
   const elevenLabsKey = !!process.env.ELEVENLABS_API_KEY;
 
