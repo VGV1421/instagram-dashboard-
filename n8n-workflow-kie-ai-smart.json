@@ -1,0 +1,167 @@
+{
+  "name": "Instagram Smart Video Generation (Kie.ai)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "instagram-smart-video",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "instagram-smart-video"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.VERCEL_URL}}/api/video/generate-smart",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contentId",
+              "value": "={{$json.contentId}}"
+            },
+            {
+              "name": "caption",
+              "value": "={{$json.caption}}"
+            },
+            {
+              "name": "duration",
+              "value": "={{$json.duration || 10}}"
+            },
+            {
+              "name": "video_type",
+              "value": "={{$json.video_type || 'talking_head'}}"
+            },
+            {
+              "name": "objective",
+              "value": "={{$json.objective || 'natural_gestures'}}"
+            },
+            {
+              "name": "budget_priority",
+              "value": "={{$json.budget_priority || 'medium'}}"
+            },
+            {
+              "name": "has_audio",
+              "value": "={{$json.has_audio !== false}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-smart-video",
+      "name": "Generate Smart Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300],
+      "notes": "Llama al endpoint inteligente que:\n1. Selecciona mejor proveedor (AI)\n2. Genera video con Kie.ai\n3. Guarda en Supabase\n4. Envía email"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.success}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{{\n  \"success\": true,\n  \"message\": \"Video generado exitosamente\",\n  \"videoUrl\": $json.data.videoUrl,\n  \"provider\": $json.data.providerName,\n  \"cost\": $json.data.estimatedCost,\n  \"type\": $json.data.videoType\n}}}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{{\n  \"success\": false,\n  \"error\": $json.error || 'Error generando video'\n}}}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Generate Smart Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Smart Video": {
+      "main": [
+        [
+          {
+            "node": "Check Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Success": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-29T00:00:00.000Z",
+  "versionId": "1"
+}
