@@ -71,3 +71,4 @@ PROGRESO_*.md
 RESUMEN_*.md
 GUIA_*.md
 instagram-dashboard-automation-*.json
+.claude/settings.local.json

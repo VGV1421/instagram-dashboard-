@@ -1,0 +1,204 @@
+{
+  "name": "Instagram Avatar Video Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://nwhdsboiojmqqfvbelwo.supabase.co/rest/v1/posts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "status",
+                "value": "eq.approved"
+              },
+              {
+                "name": "suggested_media",
+                "value": "is.null"
+              },
+              {
+                "name": "select",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "1",
+      "name": "Supabase - Get Approved Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_credential",
+          "name": "Supabase Instagram Dashboard"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/3ekAN4FjFTd3LsBs8txD",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "audio/mpeg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "model_id",
+              "value": "eleven_multilingual_v2"
+            },
+            {
+              "name": "voice_settings",
+              "value": "={{ { \"stability\": 0.55, \"similarity_boost\": 0.75, \"style\": 0.6, \"use_speaker_boost\": true } }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "2",
+      "name": "ElevenLabs - Generate Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "elevenlabs_credential",
+          "name": "ElevenLabs API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "fileId": {
+          "__rl": true,
+          "value": "1MbsJB7c0qNSLJyXSd-FHxFp0m0NTzZEC",
+          "mode": "id"
+        },
+        "name": "=audio-{{ $('Supabase - Get Approved Posts').item.json.id }}.mp3",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Google Drive - Upload Audio",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [690, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google_drive_credential",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/video/generate-from-audio",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"postId\": \"{{ $('Supabase - Get Approved Posts').item.json.id }}\",\n  \"audioFileId\": \"{{ $json.id }}\",\n  \"caption\": \"{{ $('Supabase - Get Approved Posts').item.json.caption }}\"\n}",
+        "options": {
+          "timeout": 360000
+        }
+      },
+      "id": "4",
+      "name": "HTTP Request - Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "5",
+      "name": "Schedule - Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [50, 300]
+    }
+  ],
+  "connections": {
+    "Schedule - Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Get Approved Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Get Approved Posts": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs - Generate Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs - Generate Audio": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Upload Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Upload Audio": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-29T00:00:00.000Z",
+  "versionId": "1"
+}

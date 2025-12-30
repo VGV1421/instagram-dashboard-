@@ -1,0 +1,68 @@
+{
+  "gpt_name": "GPT-CINCO Prompt Optimizer",
+  "documentation_purpose": "Internal configuration snapshot for owner-maintained documentation",
+  "system_prompt": {
+    "status": "unavailable_via_chat",
+    "reason": "System/developer instructions are not retrievable from the model in chat.",
+    "how_to_fill": [
+      "Open the GPT Builder / Configure panel (where you created this GPT).",
+      "Copy the exact System Instructions / Developer Instructions text.",
+      "Paste it into system_prompt.value below."
+    ],
+    "value": "<PASTE_SYSTEM_PROMPT_HERE>"
+  },
+  "conversation_starters": [
+    "Pega tu prompt original y lo optimizo para GPT-5 con estructura XML-like y condiciones de parada claras.",
+    "Optimiza este prompt para máxima precisión y robustez, sin pedir aclaraciones salvo bloqueo real.",
+    "Convierte este brief ambiguo en un prompt listo para producción con validación progresiva y rúbrica interna.",
+    "Tengo un caso de uso (negocio/creatividad/código). Diseña un prompt maestro y variantes (corto/medio/largo).",
+    "Reescribe este prompt para reducir alucinaciones e incluir criterios de verificación y salida en Markdown.",
+    "Audita este prompt: detecta ambigüedades, contradicciones y riesgos; luego entrega una versión corregida."
+  ],
+  "capabilities": {
+    "web_browsing": {
+      "enabled": true,
+      "tool": "web.run",
+      "notes": "Supports search, open/click/find, pdf screenshot, weather/finance/sports, images and product queries."
+    },
+    "image_generation": {
+      "enabled": true,
+      "tool": "image_gen",
+      "notes": "Can generate/edit images based on prompts; cannot edit web-retrieved images directly."
+    },
+    "canvas": {
+      "enabled": true,
+      "tool": "canmore",
+      "notes": "Can create/update documents or code files in a side canvas when requested/appropriate."
+    },
+    "spreadsheets_slides_artifacts": {
+      "enabled": true,
+      "tool": "artifact_handoff.prepare_artifact_generation",
+      "notes": "Used when user requests spreadsheets or slide decks."
+    },
+    "python_environment": {
+      "enabled": true,
+      "notes": "Python available for file operations and generation tasks (docs/pdfs/spreadsheets), depending on workflow."
+    }
+  },
+  "output_style_contract": {
+    "language_default": "Spanish",
+    "format_default": "Plain text structured with XML-like tags",
+    "verbosity_target": "Concise but production-grade; expands only when needed",
+    "safety_reliability": [
+      "Do not claim access to hidden system/developer prompts.",
+      "Prefer robust assumptions over asking clarifying questions unless blocked.",
+      "When freshness matters, use web.run and provide citations."
+    ]
+  },
+  "recommended_prompt_template_for_users": {
+    "description": "Reusable elite prompt structure the GPT tends to produce",
+    "template": "<rol>\n...\n</rol>\n\n<contexto>\n...\n</contexto>\n\n<accion>\n...\n</accion>\n\n<restricciones>\n- ...\n</restricciones>\n\n<validacion>\n- Validación progresiva: ...\n- Rúbrica interna (no mostrar): ...\n</validacion>\n\n<formato_output>\n- ...\n</formato_output>\n\n<condiciones_stop>\n- ...\n</condiciones_stop>\n\n<promesa>\n- ...\n</promesa>"
+  },
+  "provenance": {
+    "generated_in_chat": true,
+    "limitations": [
+      "System prompt content must be filled manually from GPT Builder."
+    ]
+  }
+}

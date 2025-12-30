@@ -1,0 +1,153 @@
+{
+  "name": "Instagram Avatar Video - PRODUCTION",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://nwhdsboiojmqqfvbelwo.supabase.co/rest/v1/posts?status=eq.approved&suggested_media=is.null&select=*",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53aGRzYm9pb2ptcXFmdmJlbHdvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzM2NjA5OSwiZXhwIjoyMDc4OTQyMDk5fQ.VCPKC1c3_PMpBiV1yLFvWd5J3np5H4pJNi4KxZ6oxzg"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53aGRzYm9pb2ptcXFmdmJlbHdvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzM2NjA5OSwiZXhwIjoyMDc4OTQyMDk5fQ.VCPKC1c3_PMpBiV1yLFvWd5J3np5H4pJNi4KxZ6oxzg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Get Approved Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/3ekAN4FjFTd3LsBs8txD",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "2832f520f8198dc81392a83db9f245ee4a5074ed95fbba5ed76c9ff1a038694b"
+            },
+            {
+              "name": "Accept",
+              "value": "audio/mpeg"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{ $json.caption }}\",\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.55,\n    \"similarity_boost\": 0.75,\n    \"style\": 0.6,\n    \"use_speaker_boost\": true\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "name": "ElevenLabs TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://instagram-dashboard-ten.vercel.app/api/video/generate-audio-and-video",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "postId",
+              "value": "={{ $('Get Approved Posts').item.json.id }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $('Get Approved Posts').item.json.caption }}"
+            },
+            {
+              "name": "audio",
+              "inputDataFieldName": "=data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 360000
+        }
+      },
+      "name": "Generate Video DIRECTO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Approved Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Approved Posts": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs TTS": {
+      "main": [
+        [
+          {
+            "node": "Generate Video DIRECTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
