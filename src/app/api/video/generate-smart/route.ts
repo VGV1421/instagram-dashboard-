@@ -262,7 +262,8 @@ export async function POST(request: Request) {
     const kieData = await kieResponse.json();
     console.log('   📦 Kie.ai response:', JSON.stringify(kieData));
 
-    const taskId = kieData.taskId || kieData.task_id || kieData.id;
+    // Kie.ai devuelve: { code, msg, data: { taskId, recordId } }
+    const taskId = kieData.data?.taskId || kieData.taskId || kieData.task_id || kieData.id;
 
     if (!taskId) {
       console.error('   ❌ No taskId found in response. Full response:', kieData);
@@ -291,16 +292,29 @@ export async function POST(request: Request) {
       });
 
       if (statusResponse.ok) {
-        const statusData = await statusResponse.json();
-        status = statusData.status;
+        const responseData = await statusResponse.json();
+
+        // Kie.ai devuelve: { code, msg, data: { status, output, ... } }
+        const data = responseData.data || responseData;
+        status = data.status;
 
         console.log(`   Status: ${status} (intento ${attempts + 1}/${maxAttempts})`);
 
-        if (status === 'completed' || status === 'success') {
-          videoUrl = statusData.output?.video_url || statusData.videoUrl || statusData.result_url || statusData.resultUrl;
-          break;
-        } else if (status === 'failed' || status === 'error') {
-          throw new Error('Kie.ai falló al procesar el video');
+        if (status === 'completed' || status === 'success' || status === 'COMPLETED' || status === 'SUCCESS') {
+          // Buscar video URL en diferentes posibles ubicaciones
+          videoUrl = data.output?.videoUrl ||
+                     data.output?.video_url ||
+                     data.videoUrl ||
+                     data.video_url ||
+                     data.result_url ||
+                     data.resultUrl ||
+                     data.output;
+
+          if (videoUrl) {
+            break;
+          }
+        } else if (status === 'failed' || status === 'error' || status === 'FAILED' || status === 'ERROR') {
+          throw new Error(`Kie.ai falló al procesar el video: ${data.error || 'Unknown error'}`);
         }
       }
 
