@@ -294,27 +294,35 @@ export async function POST(request: Request) {
       if (statusResponse.ok) {
         const responseData = await statusResponse.json();
 
-        // Kie.ai devuelve: { code, msg, data: { status, output, ... } }
+        // Debug: mostrar respuesta completa en el primer intento
+        if (attempts === 0) {
+          console.log('   🔍 DEBUG - Primera respuesta de polling:', JSON.stringify(responseData));
+        }
+
+        // Kie.ai devuelve: { code, msg, data: { state, resultJson, ... } }
         const data = responseData.data || responseData;
-        status = data.status;
+        status = data.state || data.status; // 'state' es el campo correcto!
 
         console.log(`   Status: ${status} (intento ${attempts + 1}/${maxAttempts})`);
 
-        if (status === 'completed' || status === 'success' || status === 'COMPLETED' || status === 'SUCCESS') {
-          // Buscar video URL en diferentes posibles ubicaciones
-          videoUrl = data.output?.videoUrl ||
+        if (status === 'success' || status === 'completed' || status === 'SUCCESS' || status === 'COMPLETED') {
+          // Buscar video URL en resultJson (formato Kie.ai)
+          videoUrl = data.resultJson?.videoUrl ||
+                     data.resultJson?.video_url ||
+                     data.resultJson?.result ||
+                     data.output?.videoUrl ||
                      data.output?.video_url ||
                      data.videoUrl ||
                      data.video_url ||
                      data.result_url ||
-                     data.resultUrl ||
-                     data.output;
+                     data.resultUrl;
 
           if (videoUrl) {
             break;
           }
-        } else if (status === 'failed' || status === 'error' || status === 'FAILED' || status === 'ERROR') {
-          throw new Error(`Kie.ai falló al procesar el video: ${data.error || 'Unknown error'}`);
+        } else if (status === 'fail' || status === 'failed' || status === 'error' || status === 'FAIL' || status === 'FAILED' || status === 'ERROR') {
+          const errorMsg = data.failMsg || data.error || 'Unknown error';
+          throw new Error(`Kie.ai falló al procesar el video: ${errorMsg}`);
         }
       }
 
