@@ -72,3 +72,20 @@ RESUMEN_*.md
 GUIA_*.md
 instagram-dashboard-automation-*.json
 .claude/settings.local.json
+
+# Build outputs
+.next/
+out/
+
+# Temp files
+temp/
+*.mp4
+*.mp3
+*.wav
+*.jpg
+frame-*.jpg
+
+# Test outputs
+test-output*.log
+video-test*.mp4
+
