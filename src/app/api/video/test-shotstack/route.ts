@@ -97,117 +97,68 @@ async function postProcessWithShotstack(
     console.log('   🎬 Iniciando post-procesado profesional con Shotstack...');
     console.log(`   ⏱️  Duración REAL del video: ${videoDuration.toFixed(2)}s`);
 
-    // CRÍTICO: Usar la duración REAL del video (no estimaciones)
+    // CRÍTICO: Usar la duración REAL del video (NO cortarlo con trim)
     const duration = videoDuration;
-    const numSegments = Math.min(6, Math.ceil(duration / 3)); // Más segmentos para videos largos
-    const segmentDuration = duration / numSegments;
 
-    console.log(`   📹 Dividiendo en ${numSegments} segmentos de ${segmentDuration.toFixed(2)}s cada uno`);
+    console.log(`   🎥 Video completo: ${duration.toFixed(2)}s (SIN CORTES)`);
 
-    // Efectos profesionales variados
-    const effects = [
-      'zoomIn',
-      'zoomOut',
-      'slideLeft',
-      'slideRight',
-      'zoomInSlow',
-      'zoomOutSlow'
-    ];
-
-    const transitions = [
-      'fade',
-      'fadeSlow',
-      'reveal',
-      'wipeLeft',
-      'wipeRight',
-      'zoom'
-    ];
-
-    // Track 1: Video principal (SIN trim, usamos el video completo)
+    // Track 1: Video COMPLETO con zoom gradual (SIN TRIM)
     const videoClips = [{
       asset: {
         type: 'video',
         src: videoUrl
+        // NO trim - usar video completo
       },
       start: 0,
-      length: duration,
+      length: duration,  // Duración COMPLETA
       fit: 'cover',
-      scale: 1.0
+      scale: 1.0,
+      effect: 'zoomIn'  // Zoom gradual sobre TODO el video
     }];
+
+    console.log(`   ✅ 1 clip con video COMPLETO + zoom gradual`);
 
     // Track 2: ELIMINAR B-roll por ahora (simplificar)
     // const brollClips = [];
 
-    // Track 3: Subtítulos palabra por palabra mejorados
-    const words = text.split(/\s+/).filter(w => w.trim().length > 0);
-    const wordDuration = duration / words.length; // Distribución exacta
-
-    const captionClips = words.map((word, index) => {
-      // Colores alternados para palabras clave
-      const isKeyword = word.length > 6 || word.match(/[!?]/);
-      const color = isKeyword ? '#FFD700' : '#FFFFFF'; // Dorado para keywords, blanco normal
-
-      return {
+    // Track 2: TEST SIMPLE - Solo 3 subtítulos grandes
+    const captionClips = [
+      {
         asset: {
           type: 'html',
-          html: `
-            <div style="
-              font-family: 'Montserrat', 'Arial Black', sans-serif;
-              font-size: 85px;
-              font-weight: 900;
-              color: ${color};
-              text-align: center;
-              text-shadow:
-                3px 3px 0px #000,
-                -3px -3px 0px #000,
-                3px -3px 0px #000,
-                -3px 3px 0px #000,
-                5px 5px 15px rgba(0,0,0,0.9);
-              padding: 25px 40px;
-              background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(30,30,30,0.85));
-              backdrop-filter: blur(15px);
-              border-radius: 25px;
-              border: 3px solid rgba(255,255,255,0.3);
-              box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-              text-transform: uppercase;
-              letter-spacing: 2px;
-              animation: pulse 0.3s ease-in-out;
-            ">
-              ${word.replace(/[!?]/g, '').toUpperCase()}
-            </div>
-          `,
-          css: `
-            body {
-              margin: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              height: 100%;
-            }
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.05); }
-            }
-          `,
+          html: '<div style="background:rgba(0,0,0,0.8);padding:20px;text-align:center;"><h1 style="color:white;font-size:50px;margin:0;">HOLA</h1></div>',
           width: 1080,
-          height: 1920,
-          background: 'transparent'
+          height: 200
         },
-        start: index * wordDuration,
-        length: wordDuration + 0.1, // Pequeño overlap para continuidad
-        position: 'center',
-        offset: {
-          y: 0.35 // Posición inferior
+        start: 0,
+        length: 5,
+        position: 'bottom'
+      },
+      {
+        asset: {
+          type: 'html',
+          html: '<div style="background:rgba(0,0,0,0.8);padding:20px;text-align:center;"><h1 style="color:white;font-size:50px;margin:0;">SUBTITULO MEDIO</h1></div>',
+          width: 1080,
+          height: 200
         },
-        opacity: 1,
-        transition: {
-          in: 'carouselUp',
-          out: 'carouselDown'
-        }
-      };
-    });
+        start: 5,
+        length: 10,
+        position: 'bottom'
+      },
+      {
+        asset: {
+          type: 'html',
+          html: '<div style="background:rgba(0,0,0,0.8);padding:20px;text-align:center;"><h1 style="color:white;font-size:50px;margin:0;">FINAL</h1></div>',
+          width: 1080,
+          height: 200
+        },
+        start: 15,
+        length: 5,
+        position: 'bottom'
+      }
+    ];
 
-    console.log(`   💬 Creando ${captionClips.length} subtítulos sincronizados (${wordDuration.toFixed(2)}s por palabra)`);
+    console.log(`   💬 3 subtítulos TEST SIMPLES`);
 
     // Timeline de Shotstack PROFESIONAL
     const shotstackPayload = {
@@ -249,10 +200,10 @@ async function postProcessWithShotstack(
 
     if (!renderResponse.ok) {
       const errorData = await renderResponse.json();
-      console.error('   ❌ Shotstack render error:', errorData);
+      console.error('   ❌ Shotstack render error:', JSON.stringify(errorData, null, 2));
       return {
         success: false,
-        error: `Shotstack render failed: ${JSON.stringify(errorData)}`
+        error: `Shotstack render failed: ${JSON.stringify(errorData, null, 2)}`
       };
     }
 

@@ -276,33 +276,12 @@ async function postProcessWithShotstack(
     console.log('   🎬 Iniciando post-procesado profesional con Shotstack...');
     console.log(`   ⏱️  Duración REAL del video: ${videoDuration.toFixed(2)}s`);
 
-    // CRÍTICO: Usar la duración REAL del video (no estimaciones)
+    // CRÍTICO: Video COMPLETO sin cortes
     const duration = videoDuration;
-    const numSegments = Math.min(6, Math.ceil(duration / 3)); // Más segmentos para videos largos
-    const segmentDuration = duration / numSegments;
 
-    console.log(`   📹 Dividiendo en ${numSegments} segmentos de ${segmentDuration.toFixed(2)}s cada uno`);
+    console.log(`   🎥 Video completo: ${duration.toFixed(2)}s (SIN CORTES)`);
 
-    // Efectos profesionales variados
-    const effects = [
-      'zoomIn',
-      'zoomOut',
-      'slideLeft',
-      'slideRight',
-      'zoomInSlow',
-      'zoomOutSlow'
-    ];
-
-    const transitions = [
-      'fade',
-      'fadeSlow',
-      'reveal',
-      'wipeLeft',
-      'wipeRight',
-      'zoom'
-    ];
-
-    // Track 1: Video principal con efectos (SIN trim, usamos el video completo)
+    // Track 1: Video COMPLETO con zoom gradual (SIN TRIM)
     const videoClips = [{
       asset: {
         type: 'video',
@@ -311,82 +290,37 @@ async function postProcessWithShotstack(
       start: 0,
       length: duration,
       fit: 'cover',
-      scale: 1.0
+      scale: 1.0,
+      effect: 'zoomIn'
     }];
+
+    console.log(`   ✅ 1 clip con video COMPLETO + zoom`);
 
     // Track 2: ELIMINAR B-roll por ahora (simplificar)
     // const brollClips = [];
 
-    // Track 3: Subtítulos palabra por palabra mejorados
+    // Track 2: Subtítulos HTML SIMPLES que SÍ funcionan
     const words = text.split(/\s+/).filter(w => w.trim().length > 0);
-    const wordDuration = duration / words.length; // Distribución exacta
+    const wordDuration = duration / words.length;
 
     const captionClips = words.map((word, index) => {
-      // Colores alternados para palabras clave
-      const isKeyword = word.length > 6 || word.match(/[!?]/);
-      const color = isKeyword ? '#FFD700' : '#FFFFFF'; // Dorado para keywords, blanco normal
+      const cleanWord = word.replace(/[!?.,]/g, '').toUpperCase();
 
       return {
         asset: {
           type: 'html',
-          html: `
-            <div style="
-              font-family: 'Montserrat', 'Arial Black', sans-serif;
-              font-size: 85px;
-              font-weight: 900;
-              color: ${color};
-              text-align: center;
-              text-shadow:
-                3px 3px 0px #000,
-                -3px -3px 0px #000,
-                3px -3px 0px #000,
-                -3px 3px 0px #000,
-                5px 5px 15px rgba(0,0,0,0.9);
-              padding: 25px 40px;
-              background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(30,30,30,0.85));
-              backdrop-filter: blur(15px);
-              border-radius: 25px;
-              border: 3px solid rgba(255,255,255,0.3);
-              box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-              text-transform: uppercase;
-              letter-spacing: 2px;
-              animation: pulse 0.3s ease-in-out;
-            ">
-              ${word.replace(/[!?]/g, '').toUpperCase()}
-            </div>
-          `,
-          css: `
-            body {
-              margin: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              height: 100%;
-            }
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.05); }
-            }
-          `,
-          width: 1080,
-          height: 1920,
-          background: 'transparent'
+          html: `<p style="font-family:Arial;font-size:70px;font-weight:bold;color:white;background:black;padding:15px 30px;margin:0;text-align:center;">${cleanWord}</p>`,
+          width: 800,
+          height: 150
         },
         start: index * wordDuration,
-        length: wordDuration + 0.1, // Pequeño overlap para continuidad
-        position: 'center',
-        offset: {
-          y: 0.35 // Posición inferior
-        },
-        opacity: 1,
-        transition: {
-          in: 'carouselUp',
-          out: 'carouselDown'
-        }
+        length: wordDuration,
+        position: 'bottom',
+        offset: { y: -0.1 }
       };
     });
 
-    console.log(`   💬 Creando ${captionClips.length} subtítulos sincronizados (${wordDuration.toFixed(2)}s por palabra)`);
+    console.log(`   💬 ${captionClips.length} subtítulos HTML (${wordDuration.toFixed(2)}s/palabra)`);
 
     // Timeline de Shotstack PROFESIONAL
     const shotstackPayload = {
@@ -664,7 +598,7 @@ async function createVideoWithHeyGenAudio(
         },
         aspect_ratio: '9:16',
         test: false,
-        caption: false
+        caption: true  // ACTIVAR SUBTÍTULOS NATIVOS DE HEYGEN
       })
     });
 
@@ -765,6 +699,12 @@ async function createVideoWithAvatarIV(
   language: string = 'es'
 ): Promise<{ success: boolean; videoUrl?: string; videoDuration?: number; videoId?: string; status?: string; error?: string }> {
   try {
+    // Validar que text no sea undefined o null
+    if (!text || typeof text !== 'string') {
+      console.error('   ❌ Text inválido para Avatar IV:', text);
+      return { success: false, error: 'Text parameter is required' };
+    }
+
     // Limpiar y optimizar texto para máxima expresividad
     let cleanText = text
       .replace(/\d+-\d+s?:\s*/gi, '')
@@ -983,8 +923,8 @@ async function createVideoWithHeyGenText(
             type: 'text',
             input_text: cleanText,
             voice_id: heygenVoiceId,
-            speed: 0.95,  // Más lento para pausas naturales y gestos
-            emotion: 'Friendly'  // Expresividad facial natural
+            speed: 1.0,  // CAMBIADO: Velocidad normal (menos robótico)
+            emotion: 'Excited'  // CAMBIADO: Más expresividad y energía
           }
         }],
         dimension: {
@@ -993,7 +933,7 @@ async function createVideoWithHeyGenText(
         },
         aspect_ratio: '9:16',
         test: false,
-        caption: false
+        caption: true  // ACTIVAR SUBTÍTULOS NATIVOS DE HEYGEN
       })
     });
 
@@ -1377,7 +1317,7 @@ async function listPhotoAvatars(apiKey: string): Promise<any[]> {
     const response = await fetch('https://api.heygen.com/v2/avatars', {
       method: 'GET',
       headers: {
-        'X-Api-Key': apiKey  // HeyGen usa X-Api-Key con mayúsculas en algunos endpoints
+        'X-Api-Key': apiKey
       }
     });
 
@@ -1387,8 +1327,18 @@ async function listPhotoAvatars(apiKey: string): Promise<any[]> {
     }
 
     const data = await response.json();
-    // La respuesta incluye data.talking_photos[] para photo avatars
-    return data.data?.talking_photos || [];
+
+    // CRÍTICO: Filtrar solo talking photos
+    // La respuesta tiene múltiples tipos de avatars
+    // Solo queremos talking_photo_id (photo avatars)
+    const allAvatars = data.data?.avatars || [];
+    const talkingPhotos = allAvatars.filter((avatar: any) => {
+      // Filtrar solo los que tienen talking_photo_id (son photo avatars)
+      return avatar.talking_photo_id || avatar.avatar_type === 'talking_photo';
+    });
+
+    console.log(`   DEBUG: Total avatars: ${allAvatars.length}, Talking photos: ${talkingPhotos.length}`);
+    return talkingPhotos;
   } catch (error: any) {
     console.error('   Error listando avatars:', error.message);
     return [];
@@ -1435,7 +1385,7 @@ async function uploadAssetForAvatarIV(
     console.log('   Buffer length:', imageBuffer.length);
 
     // Detectar Content-Type basado en la extensión del archivo
-    const ext = originalFilename.split('.').pop()?.toLowerCase() || 'png';
+    const ext = originalFilename?.split('.').pop()?.toLowerCase() || 'png';
     const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
     console.log(`   Content-Type detectado: ${contentType}`);
 
@@ -1503,14 +1453,23 @@ async function uploadTalkingPhotoToHeyGen(
     const existingAvatars = await listPhotoAvatars(apiKey);
     console.log(`   Photo avatars existentes: ${existingAvatars.length}`);
 
-    // Si ya hay 3 o más, eliminar el más antiguo
+    // Si ya hay 3 o más, eliminar los necesarios para dejar espacio (máximo 2)
     if (existingAvatars.length >= 3) {
-      console.log('   ⚠️ Límite alcanzado, eliminando avatar más antiguo...');
-      const oldestAvatar = existingAvatars[0]; // El primero es el más antiguo
-      const avatarId = oldestAvatar.photo_avatar_id || oldestAvatar.id || oldestAvatar.talking_photo_id;
+      const numToDelete = existingAvatars.length - 2; // Dejar solo 2 para que al crear queden 3
+      console.log(`   ⚠️ Límite alcanzado, eliminando ${numToDelete} avatar(s) más antiguo(s)...`);
 
-      if (avatarId) {
-        await deletePhotoAvatar(avatarId, apiKey);
+      for (let i = 0; i < numToDelete; i++) {
+        const avatar = existingAvatars[i];
+        const avatarId = avatar.avatar_id || avatar.photo_avatar_id || avatar.id || avatar.talking_photo_id;
+
+        if (avatarId) {
+          const deleted = await deletePhotoAvatar(avatarId, apiKey);
+          if (!deleted) {
+            console.error(`   ❌ No se pudo eliminar avatar ${avatarId}`);
+          }
+          // Pequeña pausa entre eliminaciones
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
     }
 
