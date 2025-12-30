@@ -174,25 +174,47 @@ export async function POST(request: Request) {
 
       console.log(`   ✅ Avatar URL: ${avatarUrl.publicUrl}`);
 
-      // 2.4: Generar audio con ElevenLabs (si está configurado)
+      // 2.4: Generar audio (REQUERIDO para Kling Avatar)
+      // Intenta ElevenLabs primero, luego OpenAI TTS como fallback
       let audioUrl: string | undefined;
 
+      // Intentar ElevenLabs
       if (elevenLabsKey && has_audio) {
-        console.log('   Generando audio con ElevenLabs...');
+        console.log('   🎵 Intentando generar audio con ElevenLabs...');
         const audioResult = await generateAudioWithElevenLabs(caption, elevenLabsKey);
-        if (audioResult.success) {
+
+        if (audioResult.success && audioResult.audioUrl) {
           audioUrl = audioResult.audioUrl;
-          console.log(`   ✅ Audio URL: ${audioUrl}`);
+          console.log(`   ✅ Audio generado con ElevenLabs: ${audioUrl}`);
         } else {
           console.log(`   ⚠️  ElevenLabs falló: ${audioResult.error}`);
-          console.log('   Usando TTS de Kie.ai como fallback');
         }
       }
 
-      // Inputs para avatar (Kie.ai usa camelCase)
+      // Fallback a OpenAI TTS si ElevenLabs falló o no está configurado
+      if (!audioUrl && openaiKey) {
+        console.log('   🎵 Intentando generar audio con OpenAI TTS...');
+        const audioResult = await generateAudioWithOpenAI(caption, openaiKey);
+
+        if (audioResult.success && audioResult.audioUrl) {
+          audioUrl = audioResult.audioUrl;
+          console.log(`   ✅ Audio generado con OpenAI TTS: ${audioUrl}`);
+        } else {
+          console.log(`   ⚠️  OpenAI TTS falló: ${audioResult.error}`);
+        }
+      }
+
+      // Si ninguno funcionó, error
+      if (!audioUrl) {
+        throw new Error('No se pudo generar audio. Se requiere ELEVENLABS_API_KEY o OPENAI_API_KEY configurada.');
+      }
+
+      // Inputs para avatar (Kie.ai usa snake_case)
+      // audio_url es OBLIGATORIO para Kling Avatar
       kieInputs = {
-        imageUrl: avatarUrl.publicUrl,
-        ...(audioUrl ? { audioUrl } : { text: caption }),
+        image_url: avatarUrl.publicUrl,
+        audio_url: audioUrl,
+        prompt: caption, // Descripción del avatar/escena
         duration
       };
 
@@ -207,7 +229,7 @@ export async function POST(request: Request) {
       kieInputs = {
         prompt: caption,
         duration,
-        aspectRatio: '9:16' // Vertical para Instagram/TikTok (camelCase)
+        aspect_ratio: '9:16' // Vertical para Instagram/TikTok
       };
     }
 
@@ -238,10 +260,13 @@ export async function POST(request: Request) {
     }
 
     const kieData = await kieResponse.json();
+    console.log('   📦 Kie.ai response:', JSON.stringify(kieData));
+
     const taskId = kieData.taskId || kieData.task_id || kieData.id;
 
     if (!taskId) {
-      throw new Error('No se recibió taskId de Kie.ai');
+      console.error('   ❌ No taskId found in response. Full response:', kieData);
+      throw new Error(`No se recibió taskId de Kie.ai. Response: ${JSON.stringify(kieData)}`);
     }
 
     console.log(`   ✅ Task ID: ${taskId}`);
@@ -364,6 +389,70 @@ export async function POST(request: Request) {
       error: error.message,
       details: error.toString()
     }, { status: 500 });
+  }
+}
+
+/**
+ * Genera audio con OpenAI TTS
+ */
+async function generateAudioWithOpenAI(
+  text: string,
+  apiKey: string
+): Promise<{ success: boolean; audioUrl?: string; error?: string }> {
+  try {
+    // Limpiar texto
+    const cleanText = text
+      .replace(/\d+-\d+s?:\s*/gi, '')
+      .replace(/["'"]/g, '')
+      .replace(/\*\*/g, '')
+      .replace(/#{1,}/g, '')
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+      .replace(/\n+/g, '. ')
+      .trim()
+      .slice(0, 4096); // OpenAI TTS limit
+
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'tts-1', // o 'tts-1-hd' para mejor calidad
+        voice: 'nova', // Voces disponibles: alloy, echo, fable, onyx, nova, shimmer
+        input: cleanText,
+        speed: 1.0
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      return { success: false, error };
+    }
+
+    // Subir a Supabase Storage
+    const audioBuffer = await response.arrayBuffer();
+    const audioFilename = `audio/audio-openai-${Date.now()}.mp3`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('avatars')
+      .upload(audioFilename, Buffer.from(audioBuffer), {
+        contentType: 'audio/mpeg',
+        upsert: true
+      });
+
+    if (uploadError) {
+      return { success: false, error: uploadError.message };
+    }
+
+    const { data: publicUrl } = supabaseAdmin.storage
+      .from('avatars')
+      .getPublicUrl(audioFilename);
+
+    return { success: true, audioUrl: publicUrl.publicUrl };
+
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }
 
