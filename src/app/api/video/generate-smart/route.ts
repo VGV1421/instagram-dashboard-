@@ -189,10 +189,10 @@ export async function POST(request: Request) {
         }
       }
 
-      // Inputs para avatar
+      // Inputs para avatar (Kie.ai usa camelCase)
       kieInputs = {
-        image_url: avatarUrl.publicUrl,
-        ...(audioUrl ? { audio_url: audioUrl } : { text: caption }),
+        imageUrl: avatarUrl.publicUrl,
+        ...(audioUrl ? { audioUrl } : { text: caption }),
         duration
       };
 
@@ -207,7 +207,7 @@ export async function POST(request: Request) {
       kieInputs = {
         prompt: caption,
         duration,
-        aspect_ratio: '9:16' // Vertical para Instagram/TikTok
+        aspectRatio: '9:16' // Vertical para Instagram/TikTok (camelCase)
       };
     }
 
@@ -218,15 +218,16 @@ export async function POST(request: Request) {
     console.log('\n🎬 PASO 3: Generando video con Kie.ai...');
     console.log(`   Provider: ${selection.provider_id}`);
 
-    const kieResponse = await fetch('https://api.kie.ai/v1/generate', {
+    // Kie.ai API usa endpoint unificado con modelo en el body
+    const kieResponse = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${kieApiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        provider: selection.provider_id,
-        inputs: kieInputs
+        model: selection.provider_id,
+        input: kieInputs
       })
     });
 
@@ -237,10 +238,10 @@ export async function POST(request: Request) {
     }
 
     const kieData = await kieResponse.json();
-    const taskId = kieData.task_id || kieData.id;
+    const taskId = kieData.taskId || kieData.task_id || kieData.id;
 
     if (!taskId) {
-      throw new Error('No se recibió task_id de Kie.ai');
+      throw new Error('No se recibió taskId de Kie.ai');
     }
 
     console.log(`   ✅ Task ID: ${taskId}`);
@@ -258,7 +259,7 @@ export async function POST(request: Request) {
     while (status !== 'completed' && status !== 'failed' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 5000)); // 5 segundos
 
-      const statusResponse = await fetch(`https://api.kie.ai/v1/tasks/${taskId}`, {
+      const statusResponse = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${taskId}`, {
         headers: {
           'Authorization': `Bearer ${kieApiKey}`
         }
@@ -270,10 +271,10 @@ export async function POST(request: Request) {
 
         console.log(`   Status: ${status} (intento ${attempts + 1}/${maxAttempts})`);
 
-        if (status === 'completed') {
-          videoUrl = statusData.output?.video_url || statusData.result_url;
+        if (status === 'completed' || status === 'success') {
+          videoUrl = statusData.output?.video_url || statusData.videoUrl || statusData.result_url || statusData.resultUrl;
           break;
-        } else if (status === 'failed') {
+        } else if (status === 'failed' || status === 'error') {
           throw new Error('Kie.ai falló al procesar el video');
         }
       }
