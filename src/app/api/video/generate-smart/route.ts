@@ -211,10 +211,11 @@ export async function POST(request: Request) {
 
       // Inputs para avatar (Kie.ai usa snake_case)
       // audio_url es OBLIGATORIO para Kling Avatar
+      // prompt es para EMOCIONES/COMPORTAMIENTO, NO para el texto que dice
       kieInputs = {
         image_url: avatarUrl.publicUrl,
         audio_url: audioUrl,
-        prompt: caption, // Descripción del avatar/escena
+        prompt: "Professional presenter speaking with confidence, natural facial expressions, and engaging gestures. Warm, friendly demeanor.", // Comportamiento/expresiones
         duration
       };
 
