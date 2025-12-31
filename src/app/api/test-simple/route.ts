@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server';
-
+// Test endpoint - NO dependencies
 export async function GET() {
-  return NextResponse.json({
+  return Response.json({
     success: true,
     message: 'Vercel deployment working!',
     timestamp: new Date().toISOString()
@@ -9,7 +8,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  return NextResponse.json({
+  return Response.json({
     success: true,
     message: 'POST endpoint working!',
     timestamp: new Date().toISOString()
